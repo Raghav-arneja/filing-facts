@@ -1,0 +1,12 @@
+[
+  { "name": "run_id", "type": "STRING", "mode": "REQUIRED", "description": "UUID per job execution." },
+  { "name": "source_key", "type": "STRING", "mode": "REQUIRED", "description": "Source filename, e.g. Accounts_Bulk_Data-2026-09-01.zip. The document id." },
+  { "name": "source_url", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "status", "type": "STRING", "mode": "REQUIRED", "description": "succeeded | skipped_existing | not_published | failed" },
+  { "name": "raw_uri", "type": "STRING", "mode": "NULLABLE", "description": "gs:// URI of the stored object." },
+  { "name": "sha256", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "byte_count", "type": "INT64", "mode": "NULLABLE" },
+  { "name": "error", "type": "STRING", "mode": "NULLABLE", "description": "ExceptionType: message, for failed runs." },
+  { "name": "started_at", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "finished_at", "type": "TIMESTAMP", "mode": "REQUIRED" }
+]
