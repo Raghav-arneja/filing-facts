@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 # Build for Cloud Run (linux/amd64). The Makefile passes --platform so Apple Silicon builds work.
 
-FROM ghcr.io/astral-sh/uv:0.11-python3.12-bookworm-slim AS builder
+FROM python:3.12-slim-bookworm AS builder
+COPY --from=ghcr.io/astral-sh/uv:0.11.21 /uv /uvx /bin/
 WORKDIR /app
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never
 COPY pyproject.toml uv.lock README.md ./
