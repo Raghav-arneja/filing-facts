@@ -12,7 +12,8 @@ locals {
     "artifactregistry.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
-    "sts.googleapis.com", # token exchange for Workload Identity Federation (CI)
+    "sts.googleapis.com",        # token exchange for Workload Identity Federation (CI)
+    "aiplatform.googleapis.com", # Vertex AI: Gemini calls, billed per token (Stage 3)
   ]
 }
 
