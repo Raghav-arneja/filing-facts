@@ -34,6 +34,7 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run pyright
       - run: uv run pytest
+      - run: make dbt-parse
 
   terraform:
     name: terraform fmt + validate
@@ -59,3 +60,27 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  dbt:
+    name: dbt build against BigQuery
+    # Forked pull requests get no OIDC token for this repository, so they cannot authenticate;
+    # skip rather than fail them.
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      FF_DBT_TARGET: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - run: uv sync --frozen
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/309024415803/locations/global/workloadIdentityPools/github/providers/github-oidc
+          service_account: ci-dbt@filing-facts-gb.iam.gserviceaccount.com
+      - run: make dbt-build
