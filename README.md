@@ -181,6 +181,7 @@ src/filing_facts/
   storage/{gcs,bigquery}.py    production backends
   storage/{memory,local}.py    test and --dry-run backends
   ingest/job.py           the Stage 1 job
+  parse/                  Stage 2: iXBRL fact extraction, plain-text rendering, document ids
   ingest/__main__.py      CLI entrypoint
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)
