@@ -7,8 +7,9 @@ from filing_facts.parse.errors import (
     ParseError,
     UnsupportedFormatError,
 )
-from filing_facts.parse.ixbrl import Context, Fact, ParsedDocument, parse_ixbrl
-from filing_facts.parse.text import render_text
+from filing_facts.parse.ixbrl import Context, Fact, ParsedDocument, parse_ixbrl, parse_ixbrl_tree
+from filing_facts.parse.text import render_text, render_text_tree
+from filing_facts.parse.xml import parse_tree
 
 __all__ = [
     "Context",
@@ -21,5 +22,8 @@ __all__ = [
     "UnsupportedFormatError",
     "document_key",
     "parse_ixbrl",
+    "parse_ixbrl_tree",
+    "parse_tree",
     "render_text",
+    "render_text_tree",
 ]

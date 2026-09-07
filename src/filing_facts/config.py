@@ -26,3 +26,13 @@ class Settings(BaseSettings):
     )
     http_timeout_seconds: float = 120.0
     local_data_dir: str = "data"
+
+    # Stage 2: parse
+    parse_cap: int = Field(
+        default=500,
+        description="Max filings parsed per daily ZIP. Deterministic selection; raise to widen.",
+    )
+    documents_table: str = "documents"
+    facts_table: str = "facts"
+    quarantine_table: str = "quarantine"
+    parse_runs_table: str = "parse_runs"

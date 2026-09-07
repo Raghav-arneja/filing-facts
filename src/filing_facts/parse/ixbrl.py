@@ -16,8 +16,9 @@ from decimal import Decimal
 # pyright: reportPrivateUsage=false
 from lxml import etree
 
-from filing_facts.parse.errors import MalformedDocumentError, NotInlineXbrlError
+from filing_facts.parse.errors import NotInlineXbrlError
 from filing_facts.parse.transforms import transform_numeric
+from filing_facts.parse.xml import parse_tree
 
 IX_NAMESPACES = frozenset(
     {"http://www.xbrl.org/2013/inlineXBRL", "http://www.xbrl.org/2008/inlineXBRL"}
@@ -70,11 +71,10 @@ def _collapse(text: str) -> str:
 
 
 def parse_ixbrl(data: bytes) -> ParsedDocument:
-    try:
-        root = etree.fromstring(data, etree.XMLParser(huge_tree=True, resolve_entities=False))
-    except etree.XMLSyntaxError as exc:
-        raise MalformedDocumentError(str(exc)) from exc
+    return parse_ixbrl_tree(parse_tree(data))
 
+
+def parse_ixbrl_tree(root: etree._Element) -> ParsedDocument:
     ix_ns = next((ns for ns in root.nsmap.values() if ns in IX_NAMESPACES), None)
     if ix_ns is None:
         # The declaration may sit on a descendant rather than the root.
