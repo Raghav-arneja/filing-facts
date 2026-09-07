@@ -70,3 +70,19 @@ variable "parse_job_timeout" {
   type    = string
   default = "1800s"
 }
+
+variable "staging_dataset_id" {
+  type    = string
+  default = "filing_facts_staging"
+}
+
+variable "ci_dataset_id" {
+  type    = string
+  default = "filing_facts_ci"
+}
+
+variable "github_repository" {
+  description = "owner/name of the GitHub repository allowed to authenticate through WIF."
+  type        = string
+  default     = "Raghav-arneja/filing-facts"
+}

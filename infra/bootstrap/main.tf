@@ -12,6 +12,7 @@ locals {
     "artifactregistry.googleapis.com",
     "run.googleapis.com",
     "cloudscheduler.googleapis.com",
+    "sts.googleapis.com", # token exchange for Workload Identity Federation (CI)
   ]
 }
 
