@@ -1,13 +1,16 @@
-# Stage 1 developer entrypoints. Every target is safe to run from a clean clone.
+# Developer entrypoints. Every target is safe to run from a clean clone.
 PROJECT   ?= filing-facts-gb
 REGION    ?= europe-west2
 REPO      ?= filing-facts
 IMAGE_NAME = $(REGION)-docker.pkg.dev/$(PROJECT)/$(REPO)/ingest
 TAG       ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 IMAGE      = $(IMAGE_NAME):$(TAG)
+DBT        = uv run dbt
+DBT_ARGS   = --project-dir dbt --profiles-dir dbt
 
 .PHONY: help sync lint typecheck test check secrets cost run-local docker-build docker-run push \
-        tf-fmt tf-validate bootstrap-init bootstrap-apply init plan apply destroy
+        tf-fmt tf-validate bootstrap-init bootstrap-apply init plan apply destroy \
+        dbt-parse dbt-run dbt-test dbt-build dbt
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
@@ -28,7 +31,7 @@ test: ## pytest
 secrets: ## gitleaks over the full git history
 	gitleaks git --no-banner .
 
-check: lint typecheck test tf-fmt tf-validate ## Everything CI runs, minus gitleaks
+check: lint typecheck test tf-fmt tf-validate dbt-parse ## Everything CI runs, minus gitleaks
 
 cost: ## Regenerate docs/cost.md from measured inputs
 	uv run python scripts/estimate_cost.py > docs/cost.md
@@ -73,3 +76,18 @@ apply: init ## Provision everything Stage 1 needs. Run `make push` first so the 
 
 destroy: init ## Tear down Stage 1 (raw bucket included, force_destroy=true)
 	terraform -chdir=infra/stage1 destroy -var="project_id=$(PROJECT)" -var="image=$(IMAGE)"
+
+
+dbt-parse: ## Compile the dbt project without a warehouse connection (what CI runs)
+	$(DBT) parse $(DBT_ARGS) --no-partial-parse
+
+dbt-run: ## Build the staging views in BigQuery via ADC
+	$(DBT) run $(DBT_ARGS)
+
+dbt-test: ## Run every dbt test against BigQuery
+	$(DBT) test $(DBT_ARGS)
+
+dbt-build: ## Build then test each model in dependency order (what CI runs, target from FF_DBT_TARGET)
+	$(DBT) build $(DBT_ARGS)
+
+dbt: dbt-run dbt-test ## Build and test

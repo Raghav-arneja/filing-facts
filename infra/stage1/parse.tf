@@ -133,3 +133,12 @@ resource "google_cloud_scheduler_job" "parse_daily" {
 
   depends_on = [google_cloud_run_v2_job_iam_member.parse_scheduler_invoker]
 }
+
+# dbt writes its staging views here. The dataset exists in Terraform so dbt never creates one.
+resource "google_bigquery_dataset" "staging" {
+  dataset_id                 = var.staging_dataset_id
+  location                   = var.location
+  description                = "dbt staging models: one row per fact, typed and tested."
+  delete_contents_on_destroy = true
+  labels                     = local.labels
+}

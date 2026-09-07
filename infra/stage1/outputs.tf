@@ -19,3 +19,12 @@ output "parse_now" {
   description = "Trigger one parse execution by hand."
   value       = "gcloud run jobs execute ${google_cloud_run_v2_job.parse.name} --region ${var.region} --project ${var.project_id} --wait"
 }
+
+output "ci_workload_identity_provider" {
+  description = "Value for google-github-actions/auth `workload_identity_provider`."
+  value       = google_iam_workload_identity_pool_provider.github.name
+}
+
+output "ci_service_account" {
+  value = google_service_account.ci.email
+}
