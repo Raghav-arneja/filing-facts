@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
+from filing_facts.parse.rows import ParseRunRecord, parse_run_key
+from filing_facts.parse.spool import Spool
 from filing_facts.storage.protocols import AlreadyExistsError, RunRecord
 
 
@@ -16,6 +19,11 @@ class MemoryRawStore:
 
     def uri_for(self, key: str) -> str:
         return f"memory://{key}"
+
+    def fetch(self, key: str, dest: Path) -> None:
+        if key not in self.objects:
+            raise KeyError(key)
+        dest.write_bytes(self.objects[key][0])
 
     def put(self, key: str, path: Path, sha256: str) -> str:
         if key in self.objects:
@@ -31,6 +39,9 @@ class MemoryRunLog:
 
     def has_succeeded(self, source_key: str) -> bool:
         return any(r.source_key == source_key and r.status == "succeeded" for r in self.records)
+
+    def succeeded_keys(self) -> list[str]:
+        return [r.source_key for r in self.records if r.status == "succeeded"]
 
     def record(self, record: RunRecord) -> bool:
         key = dedupe_key(record)
@@ -49,3 +60,67 @@ def dedupe_key(record: RunRecord) -> str:
     if record.status == "succeeded":
         return f"ingest-ok-{record.source_key}"
     return f"ingest-{record.status}-{record.run_id}"
+
+
+class MemoryParseSink:
+    """Rows are kept as the JSON-safe dicts the spool produced, exactly what BigQuery sees."""
+
+    def __init__(self) -> None:
+        self.documents: list[dict[str, Any]] = []
+        self.facts: list[dict[str, Any]] = []
+        self.quarantine: list[dict[str, Any]] = []
+        self.runs: list[ParseRunRecord] = []
+        self._batches: set[str] = set()
+
+    def processed_members(self, source_key: str) -> set[str]:
+        rows = self.documents + self.quarantine
+        return {str(r["member_name"]) for r in rows if r["source_key"] == source_key}
+
+    def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
+        finished = {r.batch_id for r in self.runs if r.status == "succeeded"}
+        started = [
+            r
+            for r in self.runs
+            if r.source_key == source_key and r.status == "started" and r.batch_id not in finished
+        ]
+        if not started:
+            return None
+        last = max(started, key=lambda r: r.started_at)
+        return last.batch_id or "", list(last.members)
+
+    def succeeded_caps(self) -> dict[str, int]:
+        caps: dict[str, int] = {}
+        for r in self.runs:
+            if r.status in ("succeeded", "skipped_existing"):
+                caps[r.source_key] = max(caps.get(r.source_key, -1), r.cap)
+        return caps
+
+    def _once(self, key: str) -> bool:
+        if key in self._batches:
+            return False
+        self._batches.add(key)
+        return True
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"quarantine:{batch_id}"):
+            return False
+        self.quarantine.extend(spool.rows())
+        return True
+
+    def write_facts(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"facts:{batch_id}"):
+            return False
+        self.facts.extend(spool.rows())
+        return True
+
+    def write_documents(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"documents:{batch_id}"):
+            return False
+        self.documents.extend(spool.rows())
+        return True
+
+    def record_run(self, record: ParseRunRecord) -> bool:
+        if not self._once(f"runs:{parse_run_key(record)}"):
+            return False
+        self.runs.append(record)
+        return True

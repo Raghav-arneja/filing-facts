@@ -20,6 +20,8 @@ from filing_facts.parse.transforms import transform_numeric
         ("-", "ixt:numdash", Decimal("0")),
         ("2.00", None, Decimal("2.00")),
         ("825,393", None, Decimal("825393")),
+        ("1,234.5", "ixt4:num-dot-decimal", Decimal("1234.5")),  # ixt v4 hyphenated names
+        ("-", "ixt4:fixed-zero", Decimal("0")),
     ],
 )
 def test_formats(text: str, fmt: str | None, expected: Decimal) -> None:

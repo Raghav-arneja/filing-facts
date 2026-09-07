@@ -5,11 +5,21 @@ from __future__ import annotations
 import json
 import os
 import shutil
-from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
+from filing_facts.parse.rows import ParseRunRecord, parse_run_key, to_row
+from filing_facts.parse.spool import Spool
 from filing_facts.storage.memory import dedupe_key
 from filing_facts.storage.protocols import AlreadyExistsError, RunRecord
+
+
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with path.open(encoding="utf-8") as fh:
+        return [json.loads(line) for line in fh if line.strip()]
 
 
 class LocalRawStore:
@@ -25,6 +35,12 @@ class LocalRawStore:
 
     def uri_for(self, key: str) -> str:
         return self._path(key).resolve().as_uri()
+
+    def fetch(self, key: str, dest: Path) -> None:
+        src = self._path(key)
+        if not src.exists():
+            raise KeyError(key)
+        shutil.copyfile(src, dest)
 
     def put(self, key: str, path: Path, sha256: str) -> str:
         target = self._path(key)
@@ -48,21 +64,106 @@ class JsonlRunLog:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.touch()
 
-    def _rows(self) -> list[dict[str, object]]:
-        return [json.loads(line) for line in self.path.read_text().splitlines() if line.strip()]
+    def _rows(self) -> list[dict[str, Any]]:
+        return read_jsonl(self.path)
 
     def has_succeeded(self, source_key: str) -> bool:
         return any(
             r["source_key"] == source_key and r["status"] == "succeeded" for r in self._rows()
         )
 
+    def succeeded_keys(self) -> list[str]:
+        return [str(r["source_key"]) for r in self._rows() if r["status"] == "succeeded"]
+
     def record(self, record: RunRecord) -> bool:
         key = dedupe_key(record)
         if any(r.get("_dedupe_key") == key for r in self._rows()):
             return False
-        row: dict[str, object] = {**asdict(record), "_dedupe_key": key}
-        row["started_at"] = record.started_at.isoformat()
-        row["finished_at"] = record.finished_at.isoformat()
+        row: dict[str, Any] = {**to_row(record), "_dedupe_key": key}
         with self.path.open("a") as fh:
             fh.write(json.dumps(row) + "\n")
+        return True
+
+
+class JsonlParseSink:
+    """One directory per source key; one file per (table, batch), written atomically.
+
+    Layout: <root>/<source_key>/<table>/<batch_id>.jsonl. A file is renamed into place only
+    after every row is written, so a crash can never leave a batch marked done but empty.
+    Lookups for one source read only that source's files.
+    """
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True)
+
+    def _table(self, source_key: str, table: str) -> Path:
+        return self.root / source_key / table
+
+    def _read_table(self, source_key: str, table: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for f in sorted(self._table(source_key, table).glob("*.jsonl")):
+            rows.extend(read_jsonl(f))
+        return rows
+
+    def _write(self, source_key: str, table: str, name: str, spool: Spool) -> bool:
+        target = self._table(source_key, table) / f"{name}.jsonl"
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        spool.close()
+        tmp = target.with_suffix(".jsonl.tmp")
+        shutil.copyfile(spool.path, tmp)
+        os.replace(tmp, target)  # atomic on POSIX
+        return True
+
+    def processed_members(self, source_key: str) -> set[str]:
+        rows = self._read_table(source_key, "documents") + self._read_table(
+            source_key, "quarantine"
+        )
+        return {str(r["member_name"]) for r in rows}
+
+    def _runs(self, source_key: str) -> list[dict[str, Any]]:
+        return self._read_table(source_key, "parse_runs")
+
+    def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
+        runs = self._runs(source_key)
+        finished = {r["batch_id"] for r in runs if r["status"] == "succeeded"}
+        started = [r for r in runs if r["status"] == "started" and r["batch_id"] not in finished]
+        if not started:
+            return None
+        last = max(started, key=lambda r: datetime.fromisoformat(str(r["started_at"])))
+        return str(last["batch_id"]), [str(m) for m in last["members"]]
+
+    def succeeded_caps(self) -> dict[str, int]:
+        caps: dict[str, int] = {}
+        for src in self.root.iterdir():
+            if not src.is_dir():
+                continue
+            for r in self._runs(src.name):
+                if r["status"] in ("succeeded", "skipped_existing"):
+                    caps[src.name] = max(caps.get(src.name, -1), int(r["cap"]))
+        return caps
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(self._source_of(spool), "quarantine", batch_id, spool)
+
+    def write_facts(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(self._source_of(spool), "facts", batch_id, spool)
+
+    def write_documents(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(self._source_of(spool), "documents", batch_id, spool)
+
+    @staticmethod
+    def _source_of(spool: Spool) -> str:
+        return spool.source_key
+
+    def record_run(self, record: ParseRunRecord) -> bool:
+        target = self._table(record.source_key, "parse_runs") / f"{parse_run_key(record)}.jsonl"
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".jsonl.tmp")
+        tmp.write_text(json.dumps(to_row(record)) + "\n", encoding="utf-8")
+        os.replace(tmp, target)
         return True

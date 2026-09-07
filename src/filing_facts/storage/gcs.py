@@ -27,6 +27,12 @@ class GcsRawStore:
     def uri_for(self, key: str) -> str:
         return f"gs://{self._bucket.name}/{self._blob(key).name}"
 
+    def fetch(self, key: str, dest: Path) -> None:
+        blob = self._blob(key)
+        if not blob.exists():
+            raise KeyError(key)
+        blob.download_to_filename(str(dest))
+
     def put(self, key: str, path: Path, sha256: str) -> str:
         blob = self._blob(key)
         blob.metadata = {"sha256": sha256}

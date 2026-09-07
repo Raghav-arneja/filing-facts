@@ -182,6 +182,8 @@ src/filing_facts/
   storage/{memory,local}.py    test and --dry-run backends
   ingest/job.py           the Stage 1 job
   parse/                  Stage 2: iXBRL fact extraction, plain-text rendering, document ids
+  parse/job.py            the Stage 2 job: pinned batches, spooled rows, quarantine
+  storage/factory.py      builds store, ledger and sink for both CLIs
   ingest/__main__.py      CLI entrypoint
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)

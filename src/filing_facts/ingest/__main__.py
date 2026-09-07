@@ -10,7 +10,6 @@ from __future__ import annotations
 import argparse
 import sys
 from datetime import date, datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -19,7 +18,7 @@ import structlog
 from filing_facts.config import Settings
 from filing_facts.ingest.job import run
 from filing_facts.logging import configure_logging
-from filing_facts.storage.protocols import RawStore, RunLog
+from filing_facts.storage.factory import build_backends
 
 LONDON = ZoneInfo("Europe/London")
 
@@ -40,40 +39,12 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _backends(settings: Settings, dry_run: bool) -> tuple[RawStore, RunLog]:
-    if dry_run:
-        from filing_facts.storage.local import JsonlRunLog, LocalRawStore
-
-        root = Path(settings.local_data_dir)
-        return LocalRawStore(root / "raw"), JsonlRunLog(root / "ingest_runs.jsonl")
-
-    missing = [n for n in ("gcp_project", "raw_bucket") if not getattr(settings, n)]
-    if missing:
-        names = ", ".join(f"FF_{m.upper()}" for m in missing)
-        raise SystemExit(f"missing required environment: {names} (or pass --dry-run)")
-
-    from google.cloud import bigquery, storage
-
-    from filing_facts.storage.bigquery import BigQueryRunLog
-    from filing_facts.storage.gcs import GcsRawStore
-
-    store = GcsRawStore(
-        storage.Client(project=settings.gcp_project), settings.raw_bucket, settings.raw_prefix
-    )
-    runlog = BigQueryRunLog(
-        bigquery.Client(project=settings.gcp_project, location=settings.bq_location),
-        settings.bq_dataset,
-        settings.bq_table,
-        settings.bq_location,
-    )
-    return store, runlog
-
-
 def main(argv: list[str] | None = None) -> int:
     configure_logging()
     args = _parse_args(argv)
     settings = Settings()
-    store, runlog = _backends(settings, args.dry_run)
+    backends = build_backends(settings, dry_run=args.dry_run)
+    store, runlog = backends.store, backends.runlog
     log = structlog.get_logger(__name__)
     log.info("ingest_start", date=args.date.isoformat(), dry_run=args.dry_run)
 

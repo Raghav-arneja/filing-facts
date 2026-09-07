@@ -11,8 +11,8 @@ from __future__ import annotations
 # pyright: reportPrivateUsage=false
 from lxml import etree
 
-from filing_facts.parse.errors import MalformedDocumentError
 from filing_facts.parse.ixbrl import IX_NAMESPACES
+from filing_facts.parse.xml import parse_tree
 
 _BLOCK = frozenset(
     {
@@ -26,11 +26,10 @@ _DROP = frozenset({"script", "style", "head", "title"})
 
 
 def render_text(data: bytes) -> str:
-    try:
-        root = etree.fromstring(data, etree.XMLParser(huge_tree=True, resolve_entities=False))
-    except etree.XMLSyntaxError as exc:
-        raise MalformedDocumentError(str(exc)) from exc
+    return render_text_tree(parse_tree(data))
 
+
+def render_text_tree(root: etree._Element) -> str:
     parts: list[str] = []
     _walk(root, parts)
     text = "".join(parts)
