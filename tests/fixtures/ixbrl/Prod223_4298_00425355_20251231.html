@@ -1,0 +1,809 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:bus="http://xbrl.frc.org.uk/cd/2025-01-01/business" xmlns:core="http://xbrl.frc.org.uk/fr/2025-01-01/core" xmlns:direp="http://xbrl.frc.org.uk/reports/2025-01-01/direp" xmlns:iso4217="http://www.xbrl.org/2003/iso4217" xmlns:ix="http://www.xbrl.org/2013/inlineXBRL" xmlns:ixt2="http://www.xbrl.org/inlineXBRL/transformation/2011-07-31" xmlns:link="http://www.xbrl.org/2003/linkbase" xmlns:xbrldi="http://xbrl.org/2006/xbrldi" xmlns:xbrli="http://www.xbrl.org/2003/instance" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <head>
+    <meta content="application/xhtml+xml; charset=UTF-8" http-equiv="Content-Type" />
+    <meta content="IE=8" http-equiv="X-UA-Compatible" />
+    <title>AIRBORNE TAXI SERVICES LIMITED</title>
+    <style type="text/css">* {
+  box-sizing: border-box;
+}
+
+html {
+  background-color: #7A8591;
+}
+
+body {
+  padding: 0;
+  margin: 15px auto;
+  text-rendering: geometricPrecision;
+  font-family: Verdana;
+  counter-reset: section;
+  font-size: 11px;
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 50px;
+  font-weight: bold;
+}
+
+p {
+  margin-bottom: 1.3em;
+  line-height: 1.4;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 1.414em 0 0.5em;
+  font-weight: bold;
+  line-height: 1.3;
+  page-break-after: avoid;
+}
+
+h1 {
+  margin-top: 0;
+  font-size: 3.157em;
+  font-weight: 600;
+}
+
+h2 {font-size: 2.369em;}
+
+h3 {font-size: 1.777em;}
+
+h4 {font-size: 1.333em;}
+
+h5, h6 {font-size: 1em;}
+
+h6 {
+  font-weight: normal;
+  font-style: italic;
+}
+
+small, .font_small {font-size: 0.75em;}
+
+.signature {
+
+  margin-top: 40px;
+  margin-bottom: 5px;
+  width: 250px;
+}
+
+.number {
+  min-width: 136px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.page {
+  position: relative;
+  background-color: white;
+  width: 210mm;
+  padding: 16mm;
+  margin: 10mm auto;
+  box-shadow: 0 20px 40px 0 rgba(52, 62, 75, .2);
+}
+
+.page-break {
+  page-break-before: always;
+  height: 0px;
+  width: calc(100% + 40mm);
+  margin-left: -20mm;
+  margin-top: 10mm;
+}
+
+.intro {
+  text-align: center;
+  padding-top: 200px;
+  padding-bottom: 200px;
+}
+
+table {
+  width: 100%;
+  font-size: 11px;
+  border-spacing: 0;
+  margin-bottom: 40px;
+  page-break-inside: avoid;
+}
+
+table thead {
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+table th {
+  font-weight: bold;
+}
+
+table tr {
+  min-height: 5px;
+}
+
+table tr:nth-child(even) {
+  background-color: rgba(0,0,0,.1);
+  border-top: 2px solid transparent;
+  border-bottom: 2px solid transparent;
+}
+
+table .border {
+  border-top: 1px solid black;
+  border-bottom: 1px solid black;
+}
+
+table .border-bottom {
+  border-bottom: 1px solid black;
+}
+
+table .border-top {
+  border-top: 1px solid black;
+}
+
+table .border-bottom-double {
+  border-bottom: double;
+}
+
+table .border-top-double {
+  border-top: double;
+}
+
+table tr td {
+  padding: 4px;
+}
+
+table .bold {
+  font-weight: bold;
+}
+
+.header-company {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+.header-title {
+  margin-top: 20px;
+  margin-bottom: 5px;
+}
+.header-sub {
+  font-size: 10px;
+}
+
+.right {
+  text-align: right;
+}
+
+.left {
+  text-align: left;
+}
+
+.center {
+  text-align: center;
+}
+
+.uppercase {
+  text-transform: uppercase;
+}
+
+@page {
+  size: A4 portrait;
+  padding: 0;
+  margin: 16mm;
+  margin-top: 36mm;
+  @top-center { content: element(running-header, first) }
+  @bottom-center { 
+    content: counter(page);
+    font-family: Verdana;
+    font-size: 11px;
+  }
+}
+
+@page :first {
+  margin-top: 6mm;
+  @bottom-center { content: ''; }
+}
+
+
+div.running-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.running-header:nth-of-type(3) {
+  display: none;
+}
+
+@media print {
+  html, body {
+    background-color: transparent;
+  }
+
+  .page {
+    margin: 0;
+    padding: 0;
+    border: initial;
+    border-radius: initial;
+    width: 100%;
+    min-height: initial;
+    box-shadow: initial;
+    background: initial;
+    box-shadow: none;
+    page-break-inside: avoid;
+  }
+
+  .page-break {
+    padding: 0;
+    margin: 0;
+    background-color: transparent;
+    width: 100%;
+  }
+
+  .toc-page {
+    display: none;
+  }
+
+  div.running-header {
+    display: block;
+    text-align: center;
+    position: running(running-header);
+    margin-bottom: 0;
+  }
+}
+
+ul.toc a::after {
+  content: leader('.') target-counter(attr(href), page);
+}
+
+ol.toc a::after {
+  content: leader('.') target-counter(attr(href), page);
+}
+
+ul.toc,
+ol.toc {
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+
+.remove-styling h1,
+.remove-styling h2,
+.remove-styling h3,
+.remove-styling h4 {
+  font-size: 11px;
+  margin: 0;
+  font-weight: bold;
+}
+
+.remove-styling table thead {
+  text-transform: none;
+}
+
+
+
+* {
+  font-size: 11px !important;
+}
+
+.intro h1,
+.intro h3,
+.intro div,
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  font-weight: bold;
+  line-height: 1.6;
+}
+
+.intro h1,
+.header-company,
+.header-title {
+  margin: 0px;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+.header-sub {
+  font-weight: bold;
+  line-height: 1.6;
+}
+
+#toc a,
+.toc a {
+  text-decoration: none;
+  color: inherit;
+}
+
+table .border {
+  border-top: 1px solid black;
+  border-bottom: 1px solid black;
+}
+
+table .border-bottom {
+  border-bottom: 1px solid black;
+}</style>
+  </head>
+  <body>
+    <div style="display:none">
+      <ix:header>
+        <ix:hidden>
+          <ix:nonNumeric contextRef="D0" name="bus:NameProductionSoftware">Silverfin</ix:nonNumeric>
+          <ix:nonNumeric contextRef="D1" name="bus:AccountingStandardsApplied"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="D2" name="bus:AccountsType"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="D0" name="bus:ReportIncludesDetailedProfitLossStatementTruefalse">false</ix:nonNumeric>
+          <ix:nonNumeric contextRef="D3" name="bus:AccountsStatusAuditedOrUnaudited"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="D0" name="bus:EntityDormantTruefalse">false  </ix:nonNumeric>
+          <ix:nonNumeric contextRef="D0" name="bus:EntityTradingStatus"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="I0" format="ixt2:datedaymonthyear" name="bus:BalanceSheetDate">31/12/2025</ix:nonNumeric>
+          <ix:nonNumeric contextRef="I0" format="ixt2:datedaymonthyear" name="bus:EndDateForPeriodCoveredByReport">31/12/2025</ix:nonNumeric>
+          <ix:nonNumeric contextRef="I0" format="ixt2:datedaymonthyear" name="bus:StartDateForPeriodCoveredByReport">01/01/2025</ix:nonNumeric>
+          <ix:nonNumeric contextRef="D4" name="bus:LegalFormEntity"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="D0" name="bus:DescriptionPrincipalActivities">no description of principal activity</ix:nonNumeric>
+          <ix:nonNumeric contextRef="D5" name="bus:NameEntityOfficer">Jonathan Lawrence Sutton </ix:nonNumeric>
+          <ix:nonNumeric contextRef="I1" format="ixt2:datedaymonthyear" name="direp:DateAssumedPosition">03/05/2011 </ix:nonNumeric>
+          <ix:nonNumeric contextRef="D6" name="bus:NameEntityOfficer">Samuel Compton Swire </ix:nonNumeric>
+          <ix:nonNumeric contextRef="I2" format="ixt2:datedaymonthyear" name="direp:DateAssumedPosition">05/07/2018 </ix:nonNumeric>
+          <ix:nonNumeric contextRef="D6" name="core:DirectorSigningFinancialStatements"></ix:nonNumeric>
+          <ix:nonNumeric contextRef="D6" name="direp:DirectorSigningDirectorsReport"></ix:nonNumeric>
+        </ix:hidden>
+        <ix:references>
+          <link:schemaRef xlink:href="https://xbrl.frc.org.uk/FRS-102/2025-01-01/FRS-102-2025-01-01.xsd" xlink:type="simple" /></ix:references>
+        <ix:resources>
+          <xbrli:context id="I0">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2025-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="I1">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:EntityOfficersDimension">bus:Director1</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2025-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="I2">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:EntityOfficersDimension">bus:Director2</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2025-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="I3">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2024-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="I4">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="core:FinancialInstrumentCurrentNon-currentDimension">core:CurrentFinancialInstruments</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2025-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="I5">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="core:FinancialInstrumentCurrentNon-currentDimension">core:CurrentFinancialInstruments</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:instant>2024-12-31</xbrli:instant>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D0">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D1">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:AccountingStandardsDimension">bus:Micro-entities</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D2">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:AccountsTypeDimension">bus:FilletedAccounts</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D3">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:AccountsStatusDimension">bus:AuditExempt-NoAccountantsReport</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D4">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:LegalFormEntityDimension">bus:PrivateLimitedCompanyLtd</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D5">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:EntityOfficersDimension">bus:Director1</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D6">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+              <xbrli:segment>
+                <xbrldi:explicitMember dimension="bus:EntityOfficersDimension">bus:Director2</xbrldi:explicitMember>
+              </xbrli:segment>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2025-01-01</xbrli:startDate>
+              <xbrli:endDate>2025-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:context id="D7">
+            <xbrli:entity>
+              <xbrli:identifier scheme="http://www.companieshouse.gov.uk/">00425355</xbrli:identifier>
+            </xbrli:entity>
+            <xbrli:period>
+              <xbrli:startDate>2024-01-01</xbrli:startDate>
+              <xbrli:endDate>2024-12-31</xbrli:endDate>
+            </xbrli:period>
+          </xbrli:context>
+          <xbrli:unit id="U-iso4217-GBP">
+            <xbrli:measure>iso4217:GBP</xbrli:measure>
+          </xbrli:unit>
+          <xbrli:unit id="U-xbrli-pure">
+            <xbrli:measure>xbrli:pure</xbrli:measure>
+          </xbrli:unit>
+        </ix:resources>
+      </ix:header>
+    </div>
+    <p></p>
+    <p></p>
+    <p></p>
+    <p></p>
+    <div class="page">
+      <p class="right">
+        <b>Company No:
+          <ix:nonNumeric contextRef="D0" name="bus:UKCompaniesHouseRegisteredNumber">00425355</ix:nonNumeric> (England and Wales)</b>
+      </p>
+      <div class="intro">
+        <h1>
+          <ix:nonNumeric contextRef="D0" name="bus:EntityCurrentLegalOrRegisteredName">AIRBORNE TAXI SERVICES LIMITED</ix:nonNumeric>
+        </h1>
+        <h3>
+          <ix:nonNumeric contextRef="D0" name="bus:ReportTitle">Unaudited Financial Statements
+            <br />For the financial year ended 31 December 2025
+            <br />Pages for filing with the registrar</ix:nonNumeric>
+        </h3>
+      </div>
+    </div>
+    <div class="page-break"></div>
+    <div class="page">
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">UNAUDITED FINANCIAL STATEMENTS</h2>
+        <div class="header-sub">For the financial year ended 31 December 2025</div>
+      </div>
+      <p>
+        <b>Contents</b>
+      </p>
+      <ul class="toc">
+        <li>
+          <a href="#company_information">Company Information </a>
+        </li>
+        <li>
+          <a href="#balance_sheet">Balance Sheet</a>
+        </li>
+        <li>
+          <a href="#notes_to_fs">Notes to the Financial Statements</a>
+        </li>
+      </ul>
+    </div>
+    <div class="page-break"></div>
+    <div class="page">
+      <div id="company_information"></div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">COMPANY INFORMATION</h2>
+        <div class="header-sub">For the financial year ended 31 December 2025</div>
+      </div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">COMPANY INFORMATION (continued)</h2>
+        <div class="header-sub">For the financial year ended 31 December 2025</div>
+      </div>
+      <table>
+        <tr>
+          <td class="bold" style="width: 50%">                  DIRECTORS</td>
+          <td>                  Jonathan Lawrence Sutton </td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 50%"></td>
+          <td>                  Samuel Compton Swire </td>
+        </tr>
+      </table>
+      <table>
+        <tr>
+          <td class="bold" style="width: 50%">                  SECRETARY</td>
+          <td>                  Jonathan Lawrence Sutton</td>
+        </tr>
+      </table>
+      <table>
+        <tr>
+          <td class="bold" style="width: 50%">                  REGISTERED OFFICE</td>
+          <td>                  22 Chancery Lane</td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 50%"></td>
+          <td>                   London</td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 50%"></td>
+          <td>                   WC2A 1LS</td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 50%"></td>
+          <td>                   United Kingdom</td>
+        </tr>
+      </table>
+      <table>
+        <tr>
+          <td class="bold" style="width: 50%">                  COMPANY NUMBER</td>
+          <td>                  00425355 (England and Wales)</td>
+        </tr>
+      </table>
+    </div>
+    <div class="page-break"></div>
+    <div class="page">
+      <div id="balance_sheet"></div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">BALANCE SHEET</h2>
+        <div class="header-sub">As at 31 December 2025</div>
+      </div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">BALANCE SHEET (continued)</h2>
+        <div class="header-sub">For the financial year ended 31 December 2025</div>
+      </div>
+      <table>
+        <tr>
+          <td style="width: 100%"></td>
+          <td class="bold"></td>
+          <td class="number bold">2025</td>
+          <td></td>
+          <td class="number bold">2024</td>
+        </tr>
+        <tr>
+          <td style="width: 100%"></td>
+          <td></td>
+          <td class="number bold">£ </td>
+          <td></td>
+          <td class="number bold">£</td>
+        </tr>
+        <tr>
+          <td style="width: 100%">Fixed assets</td>
+          <td></td>
+          <td class="number">
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:FixedAssets" scale="0" unitRef="U-iso4217-GBP"> 287,502</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number">
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:FixedAssets" scale="0" unitRef="U-iso4217-GBP"> 287,502</ix:nonFraction>
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 100%"></td>
+          <td></td>
+          <td class="number border-top"></td>
+          <td></td>
+          <td class="number border-top"></td>
+        </tr>
+        <tr>
+          <td style="width: 100%">Current assets</td>
+          <td></td>
+          <td class="number">
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:CurrentAssets" scale="0" unitRef="U-iso4217-GBP"> 539,191</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number">
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:CurrentAssets" scale="0" unitRef="U-iso4217-GBP">513,443</ix:nonFraction>
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 100%">Creditors: amounts falling due within one year</td>
+          <td></td>
+          <td class="number">(
+            <ix:nonFraction contextRef="I4" decimals="0" format="ixt2:numdotdecimal" name="core:Creditors" scale="0" unitRef="U-iso4217-GBP">825,393</ix:nonFraction>)</td>
+          <td></td>
+          <td class="number">(
+            <ix:nonFraction contextRef="I5" decimals="0" format="ixt2:numdotdecimal" name="core:Creditors" scale="0" unitRef="U-iso4217-GBP"> 795,393</ix:nonFraction>)</td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 100%">Net current liabilities</td>
+          <td></td>
+          <td class="number bold border">(
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:NetCurrentAssetsLiabilities" scale="0" sign="-" unitRef="U-iso4217-GBP"> 286,202</ix:nonFraction>)</td>
+          <td></td>
+          <td class="number bold border">(
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:NetCurrentAssetsLiabilities" scale="0" sign="-" unitRef="U-iso4217-GBP"> 281,950</ix:nonFraction>)</td>
+        </tr>
+        <tr>
+          <td style="width: 100%"></td>
+          <td></td>
+          <td class="number"></td>
+          <td></td>
+          <td class="number"></td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 100%">Total assets less current liabilities</td>
+          <td></td>
+          <td class="number bold border">
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:TotalAssetsLessCurrentLiabilities" scale="0" unitRef="U-iso4217-GBP">  1,300</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number bold border">
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:TotalAssetsLessCurrentLiabilities" scale="0" unitRef="U-iso4217-GBP">  5,552</ix:nonFraction>
+          </td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 100%">Net assets</td>
+          <td></td>
+          <td class="number bold border-top border-bottom-double">
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:NetAssetsLiabilities" scale="0" unitRef="U-iso4217-GBP"> 1,300</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number bold border-top border-bottom-double">
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:NetAssetsLiabilities" scale="0" unitRef="U-iso4217-GBP"> 5,552</ix:nonFraction>
+          </td>
+        </tr>
+        <tr>
+          <td style="width: 100%"></td>
+          <td></td>
+          <td class="number"></td>
+          <td></td>
+          <td class="number"></td>
+        </tr>
+        <tr>
+          <td class="bold" style="width: 100%">Capital and reserves</td>
+          <td></td>
+          <td class="number bold border-top border-bottom-double">
+            <ix:nonFraction contextRef="I0" decimals="0" format="ixt2:numdotdecimal" name="core:Equity" scale="0" unitRef="U-iso4217-GBP"> 1,300</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number bold border-top border-bottom-double">
+            <ix:nonFraction contextRef="I3" decimals="0" format="ixt2:numdotdecimal" name="core:Equity" scale="0" unitRef="U-iso4217-GBP"> 5,552</ix:nonFraction>
+          </td>
+        </tr>
+      </table>
+      <p>
+        <ix:nonNumeric contextRef="D0" name="direp:StatementThatCompanyEntitledToExemptionFromAuditUnderSection477CompaniesAct2006RelatingToSmallCompanies">For the financial year ending 31 December 2025 the Company was entitled to exemption from audit under section 477 of the Companies Act 2006 relating to small companies.</ix:nonNumeric>
+      </p>
+      <p>Directors' responsibilities:</p>
+      <ul>
+        <li>
+          <ix:nonNumeric contextRef="D0" name="direp:StatementThatMembersHaveNotRequiredCompanyToObtainAnAudit">The members have not required the Company to obtain an audit of its financial statements for the financial year in accordance with section 476;</ix:nonNumeric>
+        </li>
+        <li>
+          <ix:nonNumeric contextRef="D0" name="direp:StatementThatDirectorsAcknowledgeTheirResponsibilitiesUnderCompaniesAct">The directors acknowledge their responsibilities for complying with the requirements of the Companies Act 2006 with respect to accounting records and the preparation of financial statements; </ix:nonNumeric>
+        </li>
+        <li>
+          <ix:nonNumeric contextRef="D0" name="direp:StatementThatAccountsHaveBeenPreparedInAccordanceWithProvisionsSmallCompaniesRegime">These financial statements have been prepared in accordance with the micro-entity provisions of the Companies Act 2006 and FRS 105 
+            <em>The Financial Reporting Standard applicable to the Micro-entities Regime;</em>
+          </ix:nonNumeric>
+        </li>
+        <li>These financial statements have been delivered in accordance with the small companies regime and a copy of the Profit and Loss Account has not been delivered. </li>
+      </ul>
+      <p>The financial statements of Airborne Taxi Services Limited (registered number: 00425355) were approved and authorised for issue by 
+        <ix:nonNumeric contextRef="D0" name="core:DescriptionBodyAuthorisingFinancialStatements">the Board of Directors  on </ix:nonNumeric>
+        <ix:nonNumeric contextRef="I0" format="ixt2:datedaymonthyearen" name="core:DateAuthorisationFinancialStatementsForIssue">24 June 2026 </ix:nonNumeric>and were signed on its behalf by:</p>
+      <table>
+        <tr>
+          <td style="width:40%">
+            <div class="signature">Samuel Compton Swire
+              <br />Director</div>
+          </td>
+          <td style="width:20%"></td>
+        </tr>
+      </table>
+    </div>
+    <div class="page-break"></div>
+    <div class="page">
+      <div id="notes_to_fs"></div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">NOTES TO THE FINANCIAL STATEMENTS</h2>
+        <div class="header-sub">For the financial year ended 31 December 2025</div>
+      </div>
+      <div class="running-header">
+        <div class="header-company">AIRBORNE TAXI SERVICES LIMITED</div>
+        <h2 class="header-title">NOTES TO THE FINANCIAL STATEMENTS (continued)</h2>
+        <div class="header-sub">For the For the financial year ended 31 December 2025</div>
+      </div>
+    </div>
+    <div class="page">
+      <h4>
+        <b>1. Company information</b>
+      </h4>
+      <p>              The Company is a private company limited by shares and is incorporated in the United Kingdom and registered in England and Wales (Company no. 00425355). The address of its registered office is 22 Chancery Lane, London, WC2A 1LS, United Kingdom.</p>
+    </div>
+    <div class="page">
+      <h4>
+        <b>2. Employees </b>
+      </h4>
+      <table>
+        <tr>
+          <td style="width: 100%"></td>
+          <td class="number bold">2025 </td>
+          <td></td>
+          <td class="number bold">2024 </td>
+        </tr>
+        <tr>
+          <td style="width: 100%"></td>
+          <td class="number bold">Number </td>
+          <td></td>
+          <td class="number bold">Number </td>
+        </tr>
+        <tr>
+          <td style="width: 100%">Monthly average number of persons employed by the Company during the financial year, including directors</td>
+          <td class="number border-bottom-double">
+            <ix:nonFraction contextRef="D0" decimals="0" format="ixt2:zerodash" name="core:AverageNumberEmployeesDuringPeriod" scale="0" unitRef="U-xbrli-pure">-</ix:nonFraction>
+          </td>
+          <td></td>
+          <td class="number border-bottom-double">
+            <ix:nonFraction contextRef="D7" decimals="0" format="ixt2:zerodash" name="core:AverageNumberEmployeesDuringPeriod" scale="0" unitRef="U-xbrli-pure">-</ix:nonFraction>
+          </td>
+        </tr>
+      </table>
+    </div>
+  </body>
+</html>
