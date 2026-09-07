@@ -14,6 +14,7 @@ from typing import Any
 from google.api_core.exceptions import Conflict
 from google.cloud import bigquery
 
+from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key, to_row
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.memory import dedupe_key
@@ -203,6 +204,137 @@ class BigQueryParseSink:
             job = self._client.load_table_from_json(
                 [json.loads(json.dumps(to_row(record)))],
                 self._tables["parse_runs"],
+                job_id=job_id,
+                location=self._location,
+                job_config=job_config,
+            )
+        except Conflict:
+            return False
+        job.result()
+        return True
+
+
+class BigQueryExtractSink:
+    def __init__(
+        self,
+        client: bigquery.Client,
+        dataset: str,
+        location: str,
+        *,
+        documents: str,
+        quarantine: str,
+        extractions: str,
+        extract_runs: str,
+    ) -> None:
+        self._client = client
+        self._location = location
+        base = f"{client.project}.{dataset}"
+        self._t = {
+            "documents": f"{base}.{documents}",
+            "quarantine": f"{base}.{quarantine}",
+            "extractions": f"{base}.{extractions}",
+            "extract_runs": f"{base}.{extract_runs}",
+        }
+
+    def _query(self, sql: str, params: list[Any]) -> list[Any]:
+        job_config = bigquery.QueryJobConfig(query_parameters=params)
+        return list(
+            self._client.query(sql, job_config=job_config, location=self._location).result()
+        )
+
+    def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
+        t = self._t
+        sql = (
+            f"SELECT d.document_id, d.source_key, d.text FROM `{t['documents']}` d "  # noqa: S608
+            f"WHERE NOT EXISTS (SELECT 1 FROM `{t['extractions']}` e "
+            "  WHERE e.document_id = d.document_id AND e.model = @model AND e.prompt_id = @prompt) "
+            f"AND NOT EXISTS (SELECT 1 FROM `{t['quarantine']}` q "
+            "  WHERE q.document_id = d.document_id AND q.stage = 'extract' "
+            "  AND q.model = @model AND q.prompt_id = @prompt) "
+            "ORDER BY TO_HEX(SHA256(d.document_id)) LIMIT @cap"
+        )
+        rows = self._query(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("model", "STRING", model),
+                bigquery.ScalarQueryParameter("prompt", "STRING", prompt_id),
+                bigquery.ScalarQueryParameter("cap", "INT64", cap),
+            ],
+        )
+        return [
+            DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"])) for r in rows
+        ]
+
+    def processed_ids(self, model: str, prompt_id: str) -> set[str]:
+        t = self._t
+        sql = (
+            f"SELECT document_id FROM `{t['extractions']}` "  # noqa: S608
+            "WHERE model = @model AND prompt_id = @prompt "
+            f"UNION DISTINCT SELECT document_id FROM `{t['quarantine']}` "
+            "WHERE stage = 'extract' AND model = @model AND prompt_id = @prompt"
+        )
+        rows = self._query(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("model", "STRING", model),
+                bigquery.ScalarQueryParameter("prompt", "STRING", prompt_id),
+            ],
+        )
+        return {str(r["document_id"]) for r in rows}
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        sql = (
+            f"SELECT document_id, source_key, text FROM `{self._t['documents']}` "  # noqa: S608
+            "WHERE document_id IN UNNEST(@ids)"
+        )
+        rows = self._query(sql, [bigquery.ArrayQueryParameter("ids", "STRING", ids)])
+        return [
+            DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"])) for r in rows
+        ]
+
+    def open_batch(self, model: str, prompt_id: str) -> tuple[str, list[str]] | None:
+        t = self._t["extract_runs"]
+        sql = (
+            f"SELECT batch_id, document_ids FROM `{t}` s "  # noqa: S608
+            "WHERE model = @model AND prompt_id = @prompt AND status = 'started' AND NOT EXISTS ("
+            f"  SELECT 1 FROM `{t}` d WHERE d.model = @model AND d.prompt_id = @prompt "
+            "  AND d.status = 'succeeded' AND d.batch_id = s.batch_id) "
+            "ORDER BY started_at DESC LIMIT 1"
+        )
+        rows = self._query(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("model", "STRING", model),
+                bigquery.ScalarQueryParameter("prompt", "STRING", prompt_id),
+            ],
+        )
+        if not rows:
+            return None
+        return str(rows[0]["batch_id"]), [str(i) for i in rows[0]["document_ids"]]
+
+    def _write(self, table: str, batch_id: str, spool: Spool) -> bool:
+        spool.close()
+        if spool.count == 0:
+            return True
+        job = f"extract-{table}-{spool.model}-{spool.prompt_id}-{batch_id}-{spool.attempt}"
+        return _load_file(self._client, self._t[table], self._location, job, str(spool.path))
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool:
+        return self._write("quarantine", batch_id, spool)
+
+    def write_extractions(self, batch_id: str, spool: Spool) -> bool:
+        return self._write("extractions", batch_id, spool)
+
+    def record_run(self, record: ExtractRunRecord) -> bool:
+        job_config = bigquery.LoadJobConfig(
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+        job_id = _JOB_ID_SAFE.sub("_", extract_run_key(record))
+        try:
+            job = self._client.load_table_from_json(
+                [json.loads(json.dumps(to_row(record)))],
+                self._t["extract_runs"],
                 job_id=job_id,
                 location=self._location,
                 job_config=job_config,

@@ -37,6 +37,7 @@ from filing_facts.parse.rows import (
 from filing_facts.parse.spool import Spool
 from filing_facts.parse.text import render_text_tree
 from filing_facts.parse.xml import parse_tree
+from filing_facts.storage.memory import stable_order
 from filing_facts.storage.protocols import ParseSink, RawStore, RunLog
 
 log = structlog.get_logger(__name__)
@@ -62,10 +63,6 @@ class _Counts:
     facts: int = 0
 
 
-def _rank(document_id: str) -> str:
-    return hashlib.sha256(document_id.encode()).hexdigest()
-
-
 def select_members(names: list[str], cap: int) -> tuple[list[Selected], list[str]]:
     """Deterministic top-`cap` by document-id hash; unrecognised names, also capped, apart."""
     keyed: list[Selected] = []
@@ -77,7 +74,7 @@ def select_members(names: list[str], cap: int) -> tuple[list[Selected], list[str
             keyed.append(Selected(n, document_key(n)))
         except ParseError:
             unknown.append(n)
-    keyed.sort(key=lambda s: _rank(s.key.document_id))
+    keyed.sort(key=lambda s: stable_order(s.key.document_id))
     return keyed[:cap], sorted(unknown)[:cap]
 
 

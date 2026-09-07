@@ -62,6 +62,38 @@ class ModelResponse:
     validation_error: str | None = None
 
 
+def sample_answer(**overrides: Any) -> dict[str, Any]:
+    """A schema-valid answer for tests and the --fake CLI path. Numbers are from a real filing."""
+
+    def amount(v: str | None) -> dict[str, Any]:
+        return {"value": v, "confidence": 0.9, "evidence": "Line | x | y"}
+
+    def pair(c: str | None, p: str | None) -> dict[str, Any]:
+        return {"current": amount(c), "prior": amount(p)}
+
+    def text(v: str | None) -> dict[str, Any]:
+        return {"value": v, "confidence": 0.95, "evidence": "hdr"}
+
+    base: dict[str, Any] = {
+        "company_name": text("HR INFLUENCE LIMITED"),
+        "company_number": text("09469075"),
+        "period_start": text("2025-03-01"),
+        "period_end": text("2026-02-28"),
+        "equity": pair("51718", "49096"),
+        "net_assets": pair("51718", "49096"),
+        "net_current_assets": pair("30000", "28000"),
+        "total_assets_less_current_liabilities": pair("51718", "49096"),
+        "current_assets": pair("36802", "39765"),
+        "fixed_assets": pair("2204", "1500"),
+        "creditors": pair("6802", "11669"),
+        "cash": pair("30000", "25000"),
+        "average_employees": pair("2", "2"),
+        "overall_confidence": 0.9,
+    }
+    base.update(overrides)
+    return base
+
+
 class ExtractionModel(Protocol):
     @property
     def model_id(self) -> str: ...

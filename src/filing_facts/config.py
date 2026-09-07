@@ -36,3 +36,15 @@ class Settings(BaseSettings):
     facts_table: str = "facts"
     quarantine_table: str = "quarantine"
     parse_runs_table: str = "parse_runs"
+
+    # Stage 3: extract
+    extract_model: str = "gemini-3.1-flash-lite"
+    prompt_version: str = "v1"
+    vertex_location: str = (
+        "global"  # the current Flash line is served from the global endpoint only
+    )
+    extract_cap: int = Field(default=300, description="Documents per run per (model, prompt).")
+    extract_min_confidence: float = 0.5
+    extract_threads: int = 4
+    extractions_table: str = "extractions"
+    extract_runs_table: str = "extract_runs"

@@ -16,9 +16,20 @@ from filing_facts.parse.rows import to_row
 
 
 class Spool:
-    def __init__(self, path: Path, source_key: str) -> None:
+    def __init__(
+        self,
+        path: Path,
+        source_key: str = "",
+        *,
+        model: str = "",
+        prompt_id: str = "",
+        attempt: str = "",
+    ) -> None:
         self.path = path
         self.source_key = source_key
+        self.model = model
+        self.prompt_id = prompt_id
+        self.attempt = attempt  # extract: the run id, since a resume appends only new rows
         self.count = 0
         self._fh = path.open("w", encoding="utf-8")
 
