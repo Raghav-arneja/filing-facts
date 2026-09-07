@@ -17,6 +17,8 @@ RUN groupadd --system app && useradd --system --gid app --home /app app
 WORKDIR /app
 COPY --from=builder --chown=app:app /app/.venv /app/.venv
 COPY --from=builder --chown=app:app /app/src /app/src
+# Prompts are versioned artefacts the extract job reads at runtime.
+COPY --chown=app:app prompts /app/prompts
 ENV PATH="/app/.venv/bin:$PATH" PYTHONUNBUFFERED=1
 USER app
 # Same entrypoint on a laptop, in Docker, and on Cloud Run.
