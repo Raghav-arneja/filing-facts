@@ -44,7 +44,6 @@ _FORMATS: dict[str, Callable[[str], Decimal]] = {
     "numdash": _zero,
     "zerodash": _zero,
     "fixedzero": _zero,
-    "fixed-zero": _zero,
 }
 
 
@@ -62,7 +61,8 @@ def transform_numeric(
     if fmt is None:
         func: Callable[[str], Decimal] | None = _plain
     else:
-        local = fmt.split(":", 1)[-1]
+        # ixt v4 hyphenates names (num-dot-decimal); earlier registries do not (numdotdecimal).
+        local = fmt.split(":", 1)[-1].replace("-", "")
         if local not in _FORMATS:
             raise UnsupportedFormatError(fmt)
         func = _FORMATS[local]
