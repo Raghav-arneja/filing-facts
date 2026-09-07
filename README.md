@@ -8,9 +8,25 @@ real rather than vibes.
 This repository is a public portfolio project built on public data. Design rationale and the
 staged build plan are in [PROJECT-BRIEF.md](PROJECT-BRIEF.md).
 
-**Status: Stage 1 (the boring spine).** One Cloud Run Job fetches one daily Companies House
+**Status: Stage 1 complete and running.** One Cloud Run Job fetches one daily Companies House
 accounts ZIP, stores it unmodified in Cloud Storage, and records the run in BigQuery.
 Cloud Scheduler triggers it each publication morning. Nothing is parsed or extracted yet.
+
+## Roadmap
+
+Each stage is independently shippable and lands as its own pull request.
+
+| Stage | Scope | Status |
+|---|---|---|
+| 1 | Ingestion: daily ZIP to Cloud Storage, run ledger in BigQuery, Terraform, CI | Done |
+| 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Next |
+| 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Planned |
+| 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Planned |
+| 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Planned |
+| 6 | RAG over filing text and an MCP server for natural-language queries | Planned |
+
+The evaluation results table will replace this section at the top of the README once Stage 4
+lands. Until then, everything below describes Stage 1 only.
 
 ## How Stage 1 works
 

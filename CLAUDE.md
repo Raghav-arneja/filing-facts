@@ -51,6 +51,12 @@ by me, not proposed by the agent.
 - Write the test before the fix when handling a bug.
 - Tell me when something I asked for is a bad idea.
 
+## Pull requests
+- One PR per stage for Stage 1; one PR per concern from Stage 2 onwards.
+- Title: `<area>: <what changed>` in plain language. No nicknames from the brief.
+- Body follows `.github/pull_request_template.md`. Motivation before mechanics, net
+  change only, verification with commands, no local paths, no hand-typed numbers.
+
 ## Stage-end checklist
 - Does `terraform destroy` leave nothing behind?
 - Does the stage run from a clean clone with only the README?
