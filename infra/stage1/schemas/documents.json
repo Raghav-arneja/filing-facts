@@ -1,0 +1,15 @@
+[
+  { "name": "document_id", "type": "STRING", "mode": "REQUIRED", "description": "<company_number>_<period_end>. Stable across stages." },
+  { "name": "source_key", "type": "STRING", "mode": "REQUIRED", "description": "Daily ZIP this filing came from (ingest_runs.source_key)." },
+  { "name": "member_name", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "company_number", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "period_end", "type": "DATE", "mode": "REQUIRED" },
+  { "name": "byte_count", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "sha256", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "ix_namespace", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "entity_identifier", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "fact_count", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "text", "type": "STRING", "mode": "REQUIRED", "description": "Plain text with every XBRL construct removed. The LLM input in Stage 3." },
+  { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "parsed_at", "type": "TIMESTAMP", "mode": "REQUIRED" }
+]

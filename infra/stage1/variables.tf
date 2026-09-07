@@ -53,3 +53,20 @@ variable "max_bytes" {
   type        = number
   default     = 750000000
 }
+
+variable "parse_schedule" {
+  description = "Cron in Europe/London for the parse job. An hour after ingest."
+  type        = string
+  default     = "0 9 * * 2-6"
+}
+
+variable "parse_cap" {
+  description = "Max filings parsed per daily ZIP. Raising it re-queues parsed ZIPs for the remainder."
+  type        = number
+  default     = 500
+}
+
+variable "parse_job_timeout" {
+  type    = string
+  default = "1800s"
+}

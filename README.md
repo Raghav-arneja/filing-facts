@@ -8,9 +8,10 @@ real rather than vibes.
 This repository is a public portfolio project built on public data. Design rationale and the
 staged build plan are in [PROJECT-BRIEF.md](PROJECT-BRIEF.md).
 
-**Status: Stage 1 complete and running.** One Cloud Run Job fetches one daily Companies House
-accounts ZIP, stores it unmodified in Cloud Storage, and records the run in BigQuery.
-Cloud Scheduler triggers it each publication morning. Nothing is parsed or extracted yet.
+**Status: Stage 1 complete; Stage 2 parse job live, dbt models pending.** Each publication
+morning one Cloud Run Job fetches the daily Companies House accounts ZIP into Cloud Storage
+and records it in BigQuery; an hour later a second job parses a capped sample of the filings
+into `documents`, `facts` and `quarantine` tables. No LLM is involved yet.
 
 ## Roadmap
 
@@ -19,7 +20,7 @@ Each stage is independently shippable and lands as its own pull request.
 | Stage | Scope | Status |
 |---|---|---|
 | 1 | Ingestion: daily ZIP to Cloud Storage, run ledger in BigQuery, Terraform, CI | Done |
-| 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Next |
+| 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Parser and job live; dbt next |
 | 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Planned |
 | 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Planned |
 | 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Planned |
@@ -123,7 +124,7 @@ make push              # build linux/amd64 image and push it
 make apply             # remote state: bucket, dataset, table, SAs, IAM, job, scheduler
 ```
 
-Then trigger one execution by hand and inspect the ledger:
+Then trigger one execution of each job by hand and inspect the ledgers:
 
 ```bash
 gcloud run jobs execute ingest --region europe-west2 --project $PROJECT --wait
@@ -131,8 +132,36 @@ bq query --project_id=$PROJECT --location=europe-west2 --nouse_legacy_sql \
   'SELECT source_key, status, byte_count, sha256, finished_at FROM filing_facts_raw.ingest_runs ORDER BY finished_at DESC'
 ```
 
-Run the execute command twice. The second run logs `already_ingested` and the table still has
-one `succeeded` row.
+```bash
+gcloud run jobs execute parse --region europe-west2 --project $PROJECT --wait
+bq query --project_id=$PROJECT --location=europe-west2 --nouse_legacy_sql \
+  'SELECT source_key, status, parsed, quarantined, facts FROM filing_facts_raw.parse_runs ORDER BY started_at'
+```
+
+Run either execute command twice. The second run finds nothing pending and the ledgers gain no
+new success rows. The parse job processes `FF_PARSE_CAP` filings per ZIP (Terraform variable
+`parse_cap`, default 500); raising it re-queues every parsed ZIP for the remainder.
+
+### How Stage 2 works
+
+```
+Cloud Scheduler (09:00 Europe/London, Tue-Sat)
+      v
+Cloud Run Job: parse
+      |  1. which ingested ZIPs have no success at the current cap?
+      |  2. pin a batch: a `started` ledger row listing the chosen members
+      |  3. per filing: parse XML once -> tagged facts (answer key) + plain text (exam paper)
+      |     unparseable -> quarantine row with the reason; never dropped
+      |  4. rows spool to disk; three batch loads under deterministic job ids
+      |  5. `succeeded` ledger row
+      v
+filing_facts_raw.documents / facts / quarantine / parse_runs
+```
+
+A replay resumes the pinned batch, so the same load-job ids are reused and BigQuery rejects
+the duplicates. The parser records every tag occurrence: the same fact commonly appears in a
+balance sheet and again in a note, so `facts` holds one row per occurrence and the dbt layer
+reduces that to one row per fact with a test that occurrences agree.
 
 The `infra/bootstrap` state file is local and gitignored. It holds two resource ids and no
 secrets. If it is lost, `terraform import` both resources rather than recreating them.
@@ -184,6 +213,7 @@ src/filing_facts/
   parse/                  Stage 2: iXBRL fact extraction, plain-text rendering, document ids
   parse/job.py            the Stage 2 job: pinned batches, spooled rows, quarantine
   storage/factory.py      builds store, ledger and sink for both CLIs
+infra/stage1/parse.tf     Stage 2 tables, parse job and its schedule
   ingest/__main__.py      CLI entrypoint
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)
