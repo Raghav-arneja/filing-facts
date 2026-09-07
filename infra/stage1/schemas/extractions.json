@@ -1,0 +1,18 @@
+[
+  { "name": "document_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "source_key", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "model", "type": "STRING", "mode": "REQUIRED", "description": "Vertex model id." },
+  { "name": "prompt_id", "type": "STRING", "mode": "REQUIRED", "description": "Prompt version and content hash." },
+  { "name": "prompt_version", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "status", "type": "STRING", "mode": "REQUIRED", "description": "ok | low_confidence" },
+  { "name": "overall_confidence", "type": "FLOAT64", "mode": "REQUIRED" },
+  { "name": "extraction_json", "type": "STRING", "mode": "REQUIRED", "description": "The validated answer, JSON." },
+  { "name": "input_tokens", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "output_tokens", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "thinking_tokens", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "cost_usd", "type": "FLOAT64", "mode": "REQUIRED", "description": "Tokens times list price at call time." },
+  { "name": "latency_ms", "type": "INT64", "mode": "REQUIRED" },
+  { "name": "finish_reason", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "extracted_at", "type": "TIMESTAMP", "mode": "REQUIRED" }
+]

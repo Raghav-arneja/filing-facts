@@ -6,5 +6,7 @@
   { "name": "reason", "type": "STRING", "mode": "REQUIRED", "description": "Exception class name or a named condition such as nested_archive." },
   { "name": "error", "type": "STRING", "mode": "REQUIRED" },
   { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" },
-  { "name": "quarantined_at", "type": "TIMESTAMP", "mode": "REQUIRED" }
+  { "name": "quarantined_at", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "model", "type": "STRING", "mode": "NULLABLE", "description": "Extract stage: model id." },
+  { "name": "prompt_id", "type": "STRING", "mode": "NULLABLE", "description": "Extract stage: prompt version and hash." }
 ]

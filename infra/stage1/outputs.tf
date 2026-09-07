@@ -28,3 +28,8 @@ output "ci_workload_identity_provider" {
 output "ci_service_account" {
   value = google_service_account.ci.email
 }
+
+output "extract_now" {
+  description = "Run one extraction batch by hand. Spends money: check extract_cap first."
+  value       = "gcloud run jobs execute ${google_cloud_run_v2_job.extract.name} --region ${var.region} --project ${var.project_id} --wait"
+}
