@@ -1,0 +1,15 @@
+name: filing_facts
+version: "0.1.0"
+config-version: 2
+profile: filing_facts
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  filing_facts:
+    staging:
+      +materialized: view

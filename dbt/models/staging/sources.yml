@@ -1,0 +1,19 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Tables written by the ingest and parse Cloud Run Jobs. Loaded in batches; never edited.
+    database: "{{ env_var('FF_GCP_PROJECT', 'filing-facts-gb') }}"
+    schema: "{{ env_var('FF_BQ_DATASET', 'filing_facts_raw') }}"
+    tables:
+      - name: ingest_runs
+      - name: documents
+        config:
+          loaded_at_field: parsed_at
+      - name: facts
+      - name: quarantine
+        config:
+          loaded_at_field: quarantined_at
+      - name: parse_runs
+        config:
+          loaded_at_field: started_at

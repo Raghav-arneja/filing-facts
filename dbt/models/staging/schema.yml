@@ -1,0 +1,67 @@
+version: 2
+
+models:
+  - name: stg_documents
+    description: One row per parsed filing.
+    columns:
+      - name: document_id
+        tests: [unique, not_null]
+      - name: source_key
+        tests: [not_null]
+      - name: company_number
+        tests: [not_null]
+      - name: fact_count
+        tests: [not_null]
+      - name: text
+        tests: [not_null]
+
+  - name: stg_fact_occurrences
+    description: Every tagged occurrence of every fact.
+    columns:
+      - name: document_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_documents')
+                field: document_id
+      - name: concept
+        tests: [not_null]
+      - name: taxonomy
+        tests: [not_null]
+      - name: context_id
+        tests: [not_null]
+
+  - name: stg_facts
+    description: One row per fact, occurrences collapsed. The evaluation answer key.
+    columns:
+      - name: fact_key
+        tests: [not_null]
+      - name: occurrences
+        tests: [not_null]
+      - name: distinct_values
+        description: Distinct numeric values across occurrences, nil counted. 0 for non-numeric.
+      - name: inconsistent
+        description: True when numeric occurrences disagree. Stage 4 excludes these facts.
+
+  - name: stg_quarantine
+    columns:
+      - name: member_name
+        tests: [not_null]
+      - name: stage
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["parse"]
+      - name: reason
+        tests: [not_null]
+
+  - name: stg_parse_runs
+    columns:
+      - name: run_id
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["started", "succeeded", "skipped_existing", "failed"]

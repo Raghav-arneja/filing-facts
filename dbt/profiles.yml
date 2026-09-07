@@ -1,0 +1,24 @@
+# Application Default Credentials locally; Workload Identity Federation in CI. No keys anywhere.
+# Both targets write into datasets that Terraform owns (infra/stage1); see macros/create_schema.sql.
+config:
+  send_anonymous_usage_stats: false
+
+filing_facts:
+  target: "{{ env_var('FF_DBT_TARGET', 'dev') }}"
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('FF_GCP_PROJECT', 'filing-facts-gb') }}"
+      dataset: "{{ env_var('FF_DBT_DATASET', 'filing_facts_staging') }}"
+      location: "{{ env_var('FF_BQ_LOCATION', 'europe-west2') }}"
+      threads: 4
+      job_execution_timeout_seconds: 300
+    ci:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('FF_GCP_PROJECT', 'filing-facts-gb') }}"
+      dataset: "{{ env_var('FF_DBT_DATASET', 'filing_facts_ci') }}"
+      location: "{{ env_var('FF_BQ_LOCATION', 'europe-west2') }}"
+      threads: 4
+      job_execution_timeout_seconds: 300
