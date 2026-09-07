@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
+from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.protocols import AlreadyExistsError, RunRecord
@@ -121,6 +123,81 @@ class MemoryParseSink:
 
     def record_run(self, record: ParseRunRecord) -> bool:
         if not self._once(f"runs:{parse_run_key(record)}"):
+            return False
+        self.runs.append(record)
+        return True
+
+
+def stable_order(document_id: str) -> str:
+    return hashlib.sha256(document_id.encode()).hexdigest()
+
+
+class MemoryExtractSink:
+    def __init__(self, documents: list[DocumentText] | None = None) -> None:
+        self.source_documents: list[DocumentText] = list(documents or [])
+        self.extractions: list[dict[str, Any]] = []
+        self.quarantine: list[dict[str, Any]] = []
+        self.runs: list[ExtractRunRecord] = []
+        self._batches: set[str] = set()
+
+    def processed_ids(self, model: str, prompt_id: str) -> set[str]:
+        ids = {
+            str(r["document_id"])
+            for r in self.extractions
+            if r["model"] == model and r["prompt_id"] == prompt_id
+        }
+        ids |= {
+            str(r["document_id"])
+            for r in self.quarantine
+            if r["stage"] == "extract" and r["model"] == model and r["prompt_id"] == prompt_id
+        }
+        return ids
+
+    def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
+        done = self.processed_ids(model, prompt_id)
+        todo = [d for d in self.source_documents if d.document_id not in done]
+        todo.sort(key=lambda d: stable_order(d.document_id))
+        return todo[:cap]
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        wanted = set(ids)
+        return [d for d in self.source_documents if d.document_id in wanted]
+
+    def open_batch(self, model: str, prompt_id: str) -> tuple[str, list[str]] | None:
+        finished = {r.batch_id for r in self.runs if r.status == "succeeded"}
+        started = [
+            r
+            for r in self.runs
+            if r.model == model
+            and r.prompt_id == prompt_id
+            and r.status == "started"
+            and r.batch_id not in finished
+        ]
+        if not started:
+            return None
+        last = max(started, key=lambda r: r.started_at)
+        return last.batch_id or "", list(last.document_ids)
+
+    def _once(self, key: str) -> bool:
+        if key in self._batches:
+            return False
+        self._batches.add(key)
+        return True
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"xq:{batch_id}:{spool.attempt}"):
+            return False
+        self.quarantine.extend(spool.rows())
+        return True
+
+    def write_extractions(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"xe:{batch_id}:{spool.attempt}"):
+            return False
+        self.extractions.extend(spool.rows())
+        return True
+
+    def record_run(self, record: ExtractRunRecord) -> bool:
+        if not self._once(f"xr:{extract_run_key(record)}"):
             return False
         self.runs.append(record)
         return True

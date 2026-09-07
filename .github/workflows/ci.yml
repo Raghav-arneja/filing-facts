@@ -58,8 +58,15 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
+          load: true
+          tags: filing-facts:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # Run every entrypoint inside the built image: catches files missing from the image.
+      - run: docker run --rm --entrypoint python filing-facts:ci -m filing_facts.ingest --help
+      - run: docker run --rm --entrypoint python filing-facts:ci -m filing_facts.parse --help
+      - run: docker run --rm --entrypoint python filing-facts:ci -m filing_facts.extract --help
+      - run: docker run --rm --entrypoint python filing-facts:ci -c "from filing_facts.extract.prompt import load_prompt; print(load_prompt('v1').id)"
 
   dbt:
     name: dbt build against BigQuery

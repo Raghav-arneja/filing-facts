@@ -86,6 +86,8 @@ class QuarantineRow:
     error: str
     batch_id: str
     quarantined_at: datetime
+    model: str | None = None  # extract stage only
+    prompt_id: str | None = None  # extract stage only
 
 
 @dataclass(frozen=True)

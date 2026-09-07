@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:
+    from filing_facts.extract.rows import DocumentText, ExtractRunRecord
     from filing_facts.parse.rows import ParseRunRecord
     from filing_facts.parse.spool import Spool
 
@@ -93,3 +94,29 @@ class ParseSink(Protocol):
     def write_documents(self, batch_id: str, spool: Spool) -> bool: ...
 
     def record_run(self, record: ParseRunRecord) -> bool: ...
+
+
+class ExtractSink(Protocol):
+    """Destination for extraction output, and the source of the documents to extract from.
+
+    Processed-ness is per (document, model, prompt): a document is pending for a model and
+    prompt until it has an extraction row or an extract-stage quarantine row for that pair.
+    """
+
+    def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
+        """Up to `cap` unprocessed documents in a deterministic order."""
+        ...
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]: ...
+
+    def processed_ids(self, model: str, prompt_id: str) -> set[str]:
+        """Documents with an extraction or extract-stage quarantine row for this pair."""
+        ...
+
+    def open_batch(self, model: str, prompt_id: str) -> tuple[str, list[str]] | None: ...
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool: ...
+
+    def write_extractions(self, batch_id: str, spool: Spool) -> bool: ...
+
+    def record_run(self, record: ExtractRunRecord) -> bool: ...

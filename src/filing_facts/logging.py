@@ -12,6 +12,8 @@ def configure_logging(level: int = logging.INFO) -> None:
     logging.basicConfig(format="%(message)s", stream=sys.stdout, level=level)
     # httpx logs every request at INFO as plain text; keep stdout as pure JSON lines.
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    # The Gemini SDK logs an "AFC is enabled" line per call at INFO; one per document is noise.
+    logging.getLogger("google_genai").setLevel(logging.WARNING)
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,

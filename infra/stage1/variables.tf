@@ -86,3 +86,31 @@ variable "github_repository" {
   type        = string
   default     = "Raghav-arneja/filing-facts"
 }
+
+variable "extract_model" {
+  description = "Default Vertex model for the extract job."
+  type        = string
+  default     = "gemini-3.1-flash-lite"
+}
+
+variable "prompt_version" {
+  type    = string
+  default = "v1"
+}
+
+variable "extract_cap" {
+  description = "Documents per extract run per (model, prompt). Every run spends money."
+  type        = number
+  default     = 300
+}
+
+variable "vertex_location" {
+  description = "Vertex endpoint for Gemini. The current Flash line is global-only."
+  type        = string
+  default     = "global"
+}
+
+variable "extract_job_timeout" {
+  type    = string
+  default = "3600s"
+}

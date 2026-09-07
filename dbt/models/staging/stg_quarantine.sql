@@ -6,5 +6,7 @@ select
     reason,
     error,
     batch_id,
-    quarantined_at
+    quarantined_at,
+    model,
+    prompt_id
 from {{ source('raw', 'quarantine') }}

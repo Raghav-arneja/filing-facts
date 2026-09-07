@@ -9,9 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key, to_row
 from filing_facts.parse.spool import Spool
-from filing_facts.storage.memory import dedupe_key
+from filing_facts.storage.memory import dedupe_key, stable_order
 from filing_facts.storage.protocols import AlreadyExistsError, RunRecord
 
 
@@ -160,6 +161,91 @@ class JsonlParseSink:
 
     def record_run(self, record: ParseRunRecord) -> bool:
         target = self._table(record.source_key, "parse_runs") / f"{parse_run_key(record)}.jsonl"
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".jsonl.tmp")
+        tmp.write_text(json.dumps(to_row(record)) + "\n", encoding="utf-8")
+        os.replace(tmp, target)
+        return True
+
+
+class JsonlExtractSink:
+    """Reads documents from the local parse output; writes to <root>/<model>/<prompt>/<table>/."""
+
+    def __init__(self, parsed_root: Path, root: Path) -> None:
+        self.parsed_root = parsed_root
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True)
+
+    def _all_documents(self) -> list[DocumentText]:
+        out: list[DocumentText] = []
+        for f in sorted(self.parsed_root.glob("*/documents/*.jsonl")):
+            for r in read_jsonl(f):
+                out.append(
+                    DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"]))
+                )
+        return out
+
+    def _dir(self, model: str, prompt_id: str, table: str) -> Path:
+        return self.root / model / prompt_id / table
+
+    def _read(self, model: str, prompt_id: str, table: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for f in sorted(self._dir(model, prompt_id, table).glob("*.jsonl")):
+            rows.extend(read_jsonl(f))
+        return rows
+
+    def processed_ids(self, model: str, prompt_id: str) -> set[str]:
+        done = {str(r["document_id"]) for r in self._read(model, prompt_id, "extractions")}
+        done |= {str(r["document_id"]) for r in self._read(model, prompt_id, "quarantine")}
+        return done
+
+    def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
+        done = self.processed_ids(model, prompt_id)
+        todo = [d for d in self._all_documents() if d.document_id not in done]
+        todo.sort(key=lambda d: stable_order(d.document_id))
+        return todo[:cap]
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        wanted = set(ids)
+        return [d for d in self._all_documents() if d.document_id in wanted]
+
+    def open_batch(self, model: str, prompt_id: str) -> tuple[str, list[str]] | None:
+        runs = self._read(model, prompt_id, "extract_runs")
+        finished = {r["batch_id"] for r in runs if r["status"] == "succeeded"}
+        started = [r for r in runs if r["status"] == "started" and r["batch_id"] not in finished]
+        if not started:
+            return None
+        last = max(started, key=lambda r: datetime.fromisoformat(str(r["started_at"])))
+        return str(last["batch_id"]), [str(i) for i in last["document_ids"]]
+
+    def _write(self, model: str, prompt_id: str, table: str, name: str, spool: Spool) -> bool:
+        target = self._dir(model, prompt_id, table) / f"{name}.jsonl"
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        spool.close()
+        tmp = target.with_suffix(".jsonl.tmp")
+        shutil.copyfile(spool.path, tmp)
+        os.replace(tmp, target)
+        return True
+
+    def write_quarantine(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(
+            spool.model, spool.prompt_id, "quarantine", f"{batch_id}-{spool.attempt}", spool
+        )
+
+    def write_extractions(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(
+            spool.model, spool.prompt_id, "extractions", f"{batch_id}-{spool.attempt}", spool
+        )
+
+    def record_run(self, record: ExtractRunRecord) -> bool:
+        target = (
+            self._dir(record.model, record.prompt_id, "extract_runs")
+            / f"{extract_run_key(record)}.jsonl"
+        )
         if target.exists():
             return False
         target.parent.mkdir(parents=True, exist_ok=True)
