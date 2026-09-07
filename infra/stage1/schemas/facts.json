@@ -1,0 +1,20 @@
+[
+  { "name": "document_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "concept", "type": "STRING", "mode": "REQUIRED", "description": "Local name, e.g. Equity." },
+  { "name": "namespace", "type": "STRING", "mode": "REQUIRED", "description": "Taxonomy namespace URI; carries the taxonomy version." },
+  { "name": "context_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "is_numeric", "type": "BOOL", "mode": "REQUIRED" },
+  { "name": "value", "type": "NUMERIC", "mode": "NULLABLE", "description": "Numeric facts only, after format, scale and sign." },
+  { "name": "text", "type": "STRING", "mode": "REQUIRED", "description": "As displayed." },
+  { "name": "unit", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "decimals", "type": "STRING", "mode": "NULLABLE", "description": "XBRL allows INF, so a string." },
+  { "name": "format", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "scale", "type": "INT64", "mode": "NULLABLE" },
+  { "name": "sign", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "in_hidden", "type": "BOOL", "mode": "REQUIRED", "description": "Inside ix:hidden, so absent from the rendered text." },
+  { "name": "period_start", "type": "DATE", "mode": "NULLABLE" },
+  { "name": "period_end", "type": "DATE", "mode": "NULLABLE" },
+  { "name": "instant", "type": "DATE", "mode": "NULLABLE" },
+  { "name": "dimensional", "type": "BOOL", "mode": "REQUIRED", "description": "Context has a segment or scenario; a slice, not a total." },
+  { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" }
+]

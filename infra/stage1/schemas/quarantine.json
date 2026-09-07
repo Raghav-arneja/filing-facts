@@ -1,0 +1,10 @@
+[
+  { "name": "document_id", "type": "STRING", "mode": "NULLABLE", "description": "Null when the member name itself was unrecognised." },
+  { "name": "source_key", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "member_name", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "stage", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "reason", "type": "STRING", "mode": "REQUIRED", "description": "Exception class name or a named condition such as nested_archive." },
+  { "name": "error", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "quarantined_at", "type": "TIMESTAMP", "mode": "REQUIRED" }
+]
