@@ -1,0 +1,3 @@
+# Extends the default ruleset. Nothing is allowlisted yet; add entries here with a reason.
+[extend]
+useDefault = true
