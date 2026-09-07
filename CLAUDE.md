@@ -51,6 +51,12 @@ by me, not proposed by the agent.
 - Write the test before the fix when handling a bug.
 - Tell me when something I asked for is a bad idea.
 
+## Before opening any PR
+- Run the test suite three times in a row. A test that passes twice and fails once is a bug.
+- Run a code review pass over the diff and act on it before requesting review.
+- Append every bug, wrong assumption or process failure to `docs/corrections.md`, including
+  ones caught before merge. The log is part of the deliverable.
+
 ## Pull requests
 - One PR per stage for Stage 1; one PR per concern from Stage 2 onwards.
 - Title: `<area>: <what changed>` in plain language. No nicknames from the brief.
