@@ -7,6 +7,8 @@ import sys
 
 import structlog
 
+from filing_facts.telemetry import add_trace_context
+
 
 def configure_logging(level: int = logging.INFO) -> None:
     logging.basicConfig(format="%(message)s", stream=sys.stdout, level=level)
@@ -18,6 +20,7 @@ def configure_logging(level: int = logging.INFO) -> None:
         processors=[
             structlog.contextvars.merge_contextvars,
             structlog.processors.add_log_level,
+            add_trace_context,
             structlog.processors.TimeStamper(fmt="iso", utc=True),
             structlog.processors.StackInfoRenderer(),
             structlog.processors.format_exc_info,

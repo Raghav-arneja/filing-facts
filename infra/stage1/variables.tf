@@ -114,3 +114,9 @@ variable "extract_on_event" {
   type        = bool
   default     = false
 }
+
+variable "alert_email" {
+  description = "Where Cloud Monitoring sends alerts."
+  type        = string
+  default     = "raghav28081998@gmail.com"
+}

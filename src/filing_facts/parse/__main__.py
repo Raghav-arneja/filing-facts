@@ -16,6 +16,7 @@ from filing_facts.config import Settings
 from filing_facts.logging import configure_logging
 from filing_facts.parse.job import pending_source_keys, run
 from filing_facts.storage.factory import build_backends
+from filing_facts.telemetry import configure_tracing, flush
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -38,6 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
     args = _parse_args(argv)
     settings = Settings()
+    configure_tracing("filing-facts-parse", settings.gcp_project, enabled=not args.dry_run)
     cap = settings.parse_cap if args.cap is None else args.cap
     b = build_backends(settings, dry_run=args.dry_run)
     log = structlog.get_logger(__name__)
@@ -57,6 +59,7 @@ def main(argv: list[str] | None = None) -> int:
         )
         failed += outcome.status == "failed"
     log.info("parse_end", keys=len(keys), failed=failed)
+    flush()
     return 1 if failed else 0
 
 

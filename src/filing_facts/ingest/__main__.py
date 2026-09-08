@@ -19,6 +19,7 @@ from filing_facts.config import Settings
 from filing_facts.ingest.job import run
 from filing_facts.logging import configure_logging
 from filing_facts.storage.factory import build_backends
+from filing_facts.telemetry import configure_tracing, flush
 
 LONDON = ZoneInfo("Europe/London")
 
@@ -43,6 +44,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
     args = _parse_args(argv)
     settings = Settings()
+    configure_tracing("filing-facts-ingest", settings.gcp_project, enabled=not args.dry_run)
     backends = build_backends(settings, dry_run=args.dry_run)
     store, runlog = backends.store, backends.runlog
     log = structlog.get_logger(__name__)
@@ -59,6 +61,7 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     log.info("ingest_end", status=outcome.status)
+    flush()
     return 1 if outcome.status == "failed" else 0
 
 

@@ -28,6 +28,7 @@ from filing_facts.storage.protocols import (
     RunRecord,
     RunStatus,
 )
+from filing_facts.telemetry import tracer
 
 log = structlog.get_logger(__name__)
 
@@ -52,6 +53,24 @@ def run(
     run_id = str(uuid.uuid4())
     key = ch.source_key(target_date)
     url = ch.source_url(settings.source_base_url, target_date)
+    with tracer(__name__).start_as_current_span("ingest.run") as span:
+        span.set_attributes({"run_id": run_id, "source_key": key})
+        outcome = _run(settings, client, store, runlog, key, url, run_id, started_at, publisher)
+        span.set_attribute("status", outcome.status)
+        return outcome
+
+
+def _run(
+    settings: Settings,
+    client: httpx.Client,
+    store: RawStore,
+    runlog: RunLog,
+    key: str,
+    url: str,
+    run_id: str,
+    started_at: datetime,
+    publisher: EventPublisher | None,
+) -> RunOutcome:
     bound = log.bind(run_id=run_id, source_key=key, source_url=url)
 
     if runlog.has_succeeded(key):
