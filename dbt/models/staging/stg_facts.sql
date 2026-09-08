@@ -33,6 +33,7 @@ grouped as (
         array_agg(period_end ignore nulls order by period_end limit 1)[safe_offset(0)] as period_end,
         array_agg(instant ignore nulls order by instant limit 1)[safe_offset(0)] as instant,
         logical_or(dimensional) as dimensional,
+        array_agg(dimensions ignore nulls order by dimensions limit 1)[safe_offset(0)] as dimensions,
         count(*) as occurrences,
         count(distinct if(is_numeric, coalesce(cast(value as string), '<nil>'), null))
             as distinct_values,

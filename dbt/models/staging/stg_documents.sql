@@ -14,5 +14,6 @@ select
     length(text) as text_chars,
     text,
     batch_id,
-    parsed_at
+    parsed_at,
+    parser_version
 from {{ source('raw', 'documents') }}
