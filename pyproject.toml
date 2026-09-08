@@ -19,6 +19,7 @@ dependencies = [
     "google-cloud-run>=0.16.1",
     "opentelemetry-sdk>=1.44.0",
     "opentelemetry-exporter-gcp-trace>=1.15.0",
+    "mcp>=2.2.0",
 ]
 
 [dependency-groups]

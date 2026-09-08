@@ -291,6 +291,31 @@ gcloud run jobs execute index --region europe-west2 --project $PROJECT --wait
 uv run python -m filing_facts.index --search "furniture maker with no employees" --k 3
 ```
 
+### Ask the filings: an MCP server
+
+An [MCP](https://modelcontextprotocol.io) server exposes the pipeline to any chat client
+that speaks the protocol. It runs on your machine over stdio with your own credentials;
+nothing is deployed. Six tools:
+
+| Tool | What it reads |
+|---|---|
+| `search_filings` | nearest passages by meaning, with a citation key per passage |
+| `ask` | a grounded answer from Gemini Flash-Lite, every claim cited, cost reported |
+| `get_facts` | the XBRL ground truth for one filing |
+| `get_extraction` | what the model extracted, next to the truth and the harness verdict |
+| `compare_models` | precision, recall, error types and cost per 1,000 filings by model |
+| `pipeline_status` | counts, last successful run per stage, open quarantine, spend |
+
+```bash
+claude mcp add filing-facts -e FF_GCP_PROJECT=$PROJECT -- \
+  uv run --directory "$PWD" python -m filing_facts.mcp
+```
+
+Then, in Claude Code: "which dormant companies have called-up share capital under £10?"
+The answer arrives with keys like `[14508432_20251130#0]`; `get_facts` on that document
+shows the tagged figure the passage came from. The answer prompt lives in
+`prompts/ask/` and is versioned like the extraction prompts.
+
 ### Airflow, locally in Docker
 
 Per the locked decision, orchestration from Stage 3 runs on Apache Airflow in Docker rather
