@@ -61,5 +61,6 @@ class Settings(BaseSettings):
     chunk_chars: int = 1500
     chunk_overlap_lines: int = 3
     index_cap: int = Field(default=500, description="Documents per index run.")
+    index_flush_docs: int = Field(default=100, description="Load chunks every N documents.")
     chunks_table: str = "chunks"
     index_runs_table: str = "index_runs"

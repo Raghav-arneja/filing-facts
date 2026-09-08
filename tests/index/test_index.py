@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from itertools import pairwise
+from types import SimpleNamespace
+
+import pytest
 
 from filing_facts.config import Settings
 from filing_facts.extract.rows import DocumentText
 from filing_facts.index.chunker import chunk_text
-from filing_facts.index.embedder import FakeEmbedder
+from filing_facts.index.embedder import Embedding, FakeEmbedder, TaskType
 from filing_facts.index.job import run
 from filing_facts.index.search import MemorySearchBackend, Searcher
 from filing_facts.storage.memory import MemoryIndexSink
@@ -83,3 +87,61 @@ def test_unpriced_real_embedding_model_is_refused() -> None:
     out = run(Settings(), sink=MemoryIndexSink(DOCS), embedder=Odd())
     assert out.status == "failed"
     assert "unpriced" in (out.record.error or "")
+
+
+class FlakyEmbedder(FakeEmbedder):
+    """Fails on the third document's chunks, once."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.calls = 0
+
+    def embed(self, texts: Sequence[str], task: TaskType) -> list[Embedding]:
+        self.calls += 1
+        if self.calls == 3:
+            raise RuntimeError("429 RESOURCE_EXHAUSTED")
+        return super().embed(texts, task)
+
+
+def test_crash_keeps_flushed_parts_and_resume_pays_only_for_the_rest() -> None:
+    sink, emb = MemoryIndexSink(DOCS), FlakyEmbedder()
+    settings = Settings(index_cap=10, chunk_chars=80, chunk_overlap_lines=0, index_flush_docs=1)
+    first = run(settings, sink=sink, embedder=emb)
+    assert first.status == "failed"
+    assert first.record.indexed == 2, "the two documents before the crash were counted"
+    assert first.record.tokens > 0, "spend before the failure is recorded, not zeroed"
+    assert sink.processed_ids(emb.model_id) == {"00000001_20251231", "00000002_20251231"}
+    second = run(settings, sink=sink, embedder=emb)
+    assert second.status == "succeeded"
+    assert second.record.batch_id == first.record.batch_id, "the pinned batch was resumed"
+    assert second.record.indexed == 1, "only the document that failed was embedded again"
+    assert len({(c["document_id"], c["chunk_index"]) for c in sink.chunks}) == len(sink.chunks)
+    assert run(settings, sink=sink, embedder=emb).status == "skipped_existing"
+
+
+def test_vertex_embedder_retries_rate_limits_then_gives_up() -> None:
+    from google.genai import errors
+
+    from filing_facts.index.embedder import VertexEmbedder
+
+    class Boom:
+        def __init__(self, fail: int) -> None:
+            self.left, self.calls = fail, 0
+
+        def embed_content(self, **_: object) -> object:
+            self.calls += 1
+            if self.left:
+                self.left -= 1
+                raise errors.APIError(429, {"error": {"message": "slow down"}})
+            return SimpleNamespace(embeddings=[SimpleNamespace(values=[0.1, 0.2], statistics=None)])
+
+    sleeps: list[float] = []
+    e = VertexEmbedder.__new__(VertexEmbedder)
+    e._model_id, e._dims, e._threads, e._max_attempts, e._sleep = "m", 2, 1, 3, sleeps.append  # pyright: ignore[reportPrivateUsage]
+    boom = Boom(fail=2)
+    e._client = SimpleNamespace(models=boom)  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    assert e.embed(["x"], "RETRIEVAL_QUERY")[0].vector == [0.1, 0.2]
+    assert sleeps == [1.0, 2.0]
+    e._client = SimpleNamespace(models=Boom(fail=5))  # pyright: ignore[reportPrivateUsage, reportAttributeAccessIssue]
+    with pytest.raises(errors.APIError):
+        e.embed(["x"], "RETRIEVAL_QUERY")

@@ -103,6 +103,7 @@ def _run(
 
     batch_id: str | None = None
     docs: list[DocumentText] = []
+    counts = _Counts()
     try:
         if not model.startswith("fake") and not is_priced(model):
             raise ValueError(f"unpriced embedding model {model}")
@@ -128,13 +129,14 @@ def _run(
                 document_ids=[d.document_id for d in docs],
             )
         with tempfile.TemporaryDirectory(prefix="filing_facts_index_") as tmp:
-            counts = _process(settings, sink, embedder, docs, batch_id, run_id, Path(tmp), bound)
+            _process(settings, sink, embedder, docs, batch_id, run_id, Path(tmp), bound, counts)
         rec = record("succeeded", batch_id, len(docs), counts)
         bound.info("index_succeeded", batch_id=batch_id, **counts.__dict__)
         return IndexOutcome("succeeded", rec)
     except Exception as exc:
         bound.error("index_failed", batch_id=batch_id, error=str(exc))
-        rec = record("failed", batch_id, len(docs), _Counts(), error=f"{type(exc).__name__}: {exc}")
+        # counts hold what was embedded (and paid for) before the failure
+        rec = record("failed", batch_id, len(docs), counts, error=f"{type(exc).__name__}: {exc}")
         return IndexOutcome("failed", rec)
 
 
@@ -147,12 +149,27 @@ def _process(
     run_id: str,
     tmp: Path,
     bound: structlog.stdlib.BoundLogger,
-) -> _Counts:
+    counts: _Counts,
+) -> None:
+    """Chunks are loaded every `index_flush_docs` documents, each part keyed on batch, attempt
+    and part number, so a crash keeps what was embedded and a resume pays only for the rest."""
     now = datetime.now(UTC)
-    spool = Spool(tmp / "chunks.ndjson", model=embedder.model_id, attempt=run_id)
-    counts = _Counts()
     priced = is_priced(embedder.model_id)
     span_tracer = tracer(__name__)
+    part = 0
+    spool = _new_spool(tmp, embedder.model_id, run_id, part)
+    since_flush = 0
+
+    def flush() -> None:
+        nonlocal spool, part, since_flush
+        spool.close()
+        if spool.count:
+            written = sink.write_chunks(batch_id, spool)
+            bound.info("part_written", batch_id=batch_id, part=part, rows=spool.count, new=written)
+        part += 1
+        since_flush = 0
+        spool = _new_spool(tmp, embedder.model_id, run_id, part)
+
     for doc in docs:
         with span_tracer.start_as_current_span(
             "index.document", attributes={"document_id": doc.document_id}
@@ -180,10 +197,14 @@ def _process(
                 counts.chunks += 1
                 counts.tokens += emb.tokens
             counts.indexed += 1
-    if priced:
-        counts.cost_usd = cost_usd(embedder.model_id, counts.tokens, 0)
-    spool.close()
-    bound.info("indexed_batch", batch_id=batch_id, **counts.__dict__)
-    written = sink.write_chunks(batch_id, spool)
-    bound.info("batch_written", batch_id=batch_id, chunks=written)
-    return counts
+            since_flush += 1
+            if priced:
+                counts.cost_usd = cost_usd(embedder.model_id, counts.tokens, 0)
+        if since_flush >= settings.index_flush_docs:
+            flush()
+    flush()
+    bound.info("indexed_batch", batch_id=batch_id, parts=part, **counts.__dict__)
+
+
+def _new_spool(tmp: Path, model: str, run_id: str, part: int) -> Spool:
+    return Spool(tmp / f"chunks-{part}.ndjson", model=model, attempt=f"{run_id}-p{part}")

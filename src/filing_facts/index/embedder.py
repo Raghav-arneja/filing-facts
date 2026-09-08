@@ -5,9 +5,13 @@ from __future__ import annotations
 
 import hashlib
 import math
-from collections.abc import Sequence
+import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol
+from typing import TYPE_CHECKING, Literal, Protocol
+
+if TYPE_CHECKING:
+    from google.genai import types
 
 TaskType = Literal["RETRIEVAL_DOCUMENT", "RETRIEVAL_QUERY"]
 
@@ -67,12 +71,16 @@ class VertexEmbedder:
         location: str = "global",
         dimensions: int = 768,
         threads: int = 4,
+        max_attempts: int = 6,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         from google import genai
 
         self._model_id = model_id
         self._dims = dimensions
         self._threads = threads
+        self._max_attempts = max_attempts
+        self._sleep = sleep
         self._client = genai.Client(vertexai=True, project=project, location=location)
 
     @property
@@ -83,15 +91,28 @@ class VertexEmbedder:
     def dimensions(self) -> int:
         return self._dims
 
-    def _one(self, text: str, task: TaskType) -> Embedding:
-        from google.genai import types
+    def _call(self, text: str, task: TaskType) -> types.EmbedContentResponse:
+        """Rate limits (429) and transient 5xx back off and retry; anything else raises."""
+        from google.genai import errors, types
 
-        response = self._client.models.embed_content(  # pyright: ignore[reportUnknownMemberType]
-            model=self._model_id,
-            contents=text,
-            config=types.EmbedContentConfig(task_type=task, output_dimensionality=self._dims),
-        )
-        embeddings = response.embeddings or []
+        config = types.EmbedContentConfig(task_type=task, output_dimensionality=self._dims)
+        delay = 1.0
+        for attempt in range(1, self._max_attempts + 1):
+            try:
+                return self._client.models.embed_content(  # pyright: ignore[reportUnknownMemberType]
+                    model=self._model_id, contents=text, config=config
+                )
+            except errors.APIError as exc:
+                if exc.code in (429, 500, 502, 503, 504) and attempt < self._max_attempts:
+                    self._sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+        raise AssertionError("unreachable")
+
+    def _one(self, text: str, task: TaskType) -> Embedding:
+        response = self._call(text, task)
+        embeddings: list[types.ContentEmbedding] = list(response.embeddings or [])
         if len(embeddings) != 1:
             raise RuntimeError(f"expected one embedding, got {len(embeddings)}")
         e = embeddings[0]
