@@ -251,3 +251,29 @@ def test_pending_keys_respect_the_cap(sink: MemoryParseSink) -> None:
     assert pending_source_keys(runlog, sink, 2000) == ["a.zip", "c.zip"], (
         "raising the cap re-queues"
     )
+
+
+def test_released_quarantine_rows_make_members_pending_again(
+    settings: Settings, store: MemoryRawStore, sink: MemoryParseSink, tmp_path: Path
+) -> None:
+    """A backfill stamps released_at instead of deleting; the member is then reprocessed."""
+    seed(store, build_zip(MESSY), tmp_path)
+    run(settings, store=store, sink=sink, source_key=SOURCE)
+    assert run(settings, store=store, sink=sink, source_key=SOURCE).status == "skipped_existing"
+    for q in sink.quarantine:
+        if q["member_name"] == BAD:
+            q["released_at"] = "2026-09-08T00:00:00+00:00"
+    assert sink.released_sources() == {SOURCE}
+    runlog = MemoryRunLog()
+    from datetime import UTC, datetime
+
+    from filing_facts.storage.protocols import RunRecord
+
+    now = datetime.now(UTC)
+    runlog.record(RunRecord("r", SOURCE, "u", "succeeded", now, now))
+    assert pending_source_keys(runlog, sink, settings.parse_cap) == [SOURCE], "released -> pending"
+
+    out = run(settings, store=store, sink=sink, source_key=SOURCE)
+    assert out.status == "succeeded"
+    assert out.record.selected == 1, "only the released member is reprocessed"
+    assert sum(1 for q in sink.quarantine if q["member_name"] == BAD) == 2, "history kept"

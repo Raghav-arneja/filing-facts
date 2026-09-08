@@ -10,7 +10,7 @@ DBT_ARGS   = --project-dir dbt --profiles-dir dbt
 
 .PHONY: help sync lint typecheck test check secrets cost run-local docker-build docker-run push \
         tf-fmt tf-validate bootstrap-init bootstrap-apply init plan apply destroy \
-        dbt-parse dbt-run dbt-test dbt-build dbt
+        dbt-parse dbt-run dbt-test dbt-build dbt airflow-up airflow-down airflow-test airflow-trigger
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
@@ -91,3 +91,20 @@ dbt-build: ## Build then test each model in dependency order (what CI runs, targ
 	$(DBT) build $(DBT_ARGS)
 
 dbt: dbt-run dbt-test ## Build and test
+
+AIRFLOW = docker compose -f airflow/docker-compose.yml
+
+airflow-up: ## Start Airflow locally (http://localhost:8080, credentials printed in the log)
+	$(AIRFLOW) up -d
+	@echo "Airflow UI: http://localhost:8080  (admin password: $(AIRFLOW) logs airflow | grep -i password)"
+
+airflow-down: ## Stop Airflow and remove its containers
+	$(AIRFLOW) down
+
+airflow-test: ## DAG integrity tests inside the Airflow image (what CI runs)
+	$(AIRFLOW) run --rm --no-deps --entrypoint "" \
+	  -e AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////tmp/airflow.db -e AIRFLOW__CORE__EXECUTOR=SequentialExecutor \
+	  airflow python /opt/airflow/tests/test_dag_integrity.py
+
+airflow-trigger: ## Trigger the daily DAG once (ARGS='--conf {"extract_cap": 50}')
+	$(AIRFLOW) exec airflow airflow dags trigger filing_facts_daily $(ARGS)

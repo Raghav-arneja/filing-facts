@@ -147,9 +147,17 @@ class BigQueryParseSink:
         t = self._tables
         sql = (
             f"SELECT member_name FROM `{t['documents']}` WHERE source_key = @k "  # noqa: S608
-            f"UNION DISTINCT SELECT member_name FROM `{t['quarantine']}` WHERE source_key = @k"
+            f"UNION DISTINCT SELECT member_name FROM `{t['quarantine']}` "
+            "WHERE source_key = @k AND released_at IS NULL"
         )
         return {str(r["member_name"]) for r in self._query(sql, k=source_key)}
+
+    def released_sources(self) -> set[str]:
+        sql = (
+            f"SELECT DISTINCT source_key FROM `{self._tables['quarantine']}` "  # noqa: S608
+            "WHERE stage = 'parse' AND released_at IS NOT NULL"
+        )
+        return {str(r["source_key"]) for r in self._query(sql)}
 
     def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
         t = self._tables["parse_runs"]
@@ -250,8 +258,11 @@ class BigQueryExtractSink:
             "  WHERE e.document_id = d.document_id AND e.model = @model AND e.prompt_id = @prompt) "
             f"AND NOT EXISTS (SELECT 1 FROM `{t['quarantine']}` q "
             "  WHERE q.document_id = d.document_id AND q.stage = 'extract' "
-            "  AND q.model = @model AND q.prompt_id = @prompt) "
-            "ORDER BY TO_HEX(SHA256(d.document_id)) LIMIT @cap"
+            "  AND q.model = @model AND q.prompt_id = @prompt AND q.released_at IS NULL) "
+            f"ORDER BY EXISTS (SELECT 1 FROM `{t['quarantine']}` r "
+            "  WHERE r.document_id = d.document_id AND r.stage = 'extract' "
+            "  AND r.model = @model AND r.prompt_id = @prompt AND r.released_at IS NOT NULL) DESC, "
+            "TO_HEX(SHA256(d.document_id)) LIMIT @cap"
         )
         rows = self._query(
             sql,
@@ -271,7 +282,8 @@ class BigQueryExtractSink:
             f"SELECT document_id FROM `{t['extractions']}` "  # noqa: S608
             "WHERE model = @model AND prompt_id = @prompt "
             f"UNION DISTINCT SELECT document_id FROM `{t['quarantine']}` "
-            "WHERE stage = 'extract' AND model = @model AND prompt_id = @prompt"
+            "WHERE stage = 'extract' AND model = @model AND prompt_id = @prompt "
+            "AND released_at IS NULL"
         )
         rows = self._query(
             sql,

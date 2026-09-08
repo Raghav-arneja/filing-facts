@@ -119,10 +119,19 @@ class JsonlParseSink:
         return True
 
     def processed_members(self, source_key: str) -> set[str]:
-        rows = self._read_table(source_key, "documents") + self._read_table(
-            source_key, "quarantine"
-        )
+        rows = self._read_table(source_key, "documents") + [
+            q for q in self._read_table(source_key, "quarantine") if not q.get("released_at")
+        ]
         return {str(r["member_name"]) for r in rows}
+
+    def released_sources(self) -> set[str]:
+        out: set[str] = set()
+        for src in self.root.iterdir():
+            if src.is_dir() and any(
+                q.get("released_at") for q in self._read_table(src.name, "quarantine")
+            ):
+                out.add(src.name)
+        return out
 
     def _runs(self, source_key: str) -> list[dict[str, Any]]:
         return self._read_table(source_key, "parse_runs")
@@ -198,13 +207,22 @@ class JsonlExtractSink:
 
     def processed_ids(self, model: str, prompt_id: str) -> set[str]:
         done = {str(r["document_id"]) for r in self._read(model, prompt_id, "extractions")}
-        done |= {str(r["document_id"]) for r in self._read(model, prompt_id, "quarantine")}
+        done |= {
+            str(r["document_id"])
+            for r in self._read(model, prompt_id, "quarantine")
+            if not r.get("released_at")
+        }
         return done
 
     def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
         done = self.processed_ids(model, prompt_id)
+        released = {
+            str(r["document_id"])
+            for r in self._read(model, prompt_id, "quarantine")
+            if r.get("released_at")
+        } - done
         todo = [d for d in self._all_documents() if d.document_id not in done]
-        todo.sort(key=lambda d: stable_order(d.document_id))
+        todo.sort(key=lambda d: (d.document_id not in released, stable_order(d.document_id)))
         return todo[:cap]
 
     def documents_by_id(self, ids: list[str]) -> list[DocumentText]:

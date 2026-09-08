@@ -79,9 +79,11 @@ def select_members(names: list[str], cap: int) -> tuple[list[Selected], list[str
 
 
 def pending_source_keys(runlog: RunLog, sink: ParseSink, cap: int) -> list[str]:
-    """Ingested sources with no succeeded parse at this cap or higher. Raising the cap re-queues."""
+    """Ingested sources with no succeeded parse at this cap or higher, plus any source with
+    quarantine rows released by a backfill. Raising the cap re-queues everything."""
     caps = sink.succeeded_caps()
-    return [k for k in runlog.succeeded_keys() if caps.get(k, -1) < cap]
+    released = sink.released_sources()
+    return [k for k in runlog.succeeded_keys() if caps.get(k, -1) < cap or k in released]
 
 
 def batch_id_for(members: list[str]) -> str:

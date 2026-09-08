@@ -8,5 +8,6 @@
   { "name": "batch_id", "type": "STRING", "mode": "REQUIRED" },
   { "name": "quarantined_at", "type": "TIMESTAMP", "mode": "REQUIRED" },
   { "name": "model", "type": "STRING", "mode": "NULLABLE", "description": "Extract stage: model id." },
-  { "name": "prompt_id", "type": "STRING", "mode": "NULLABLE", "description": "Extract stage: prompt version and hash." }
+  { "name": "prompt_id", "type": "STRING", "mode": "NULLABLE", "description": "Extract stage: prompt version and hash." },
+  { "name": "released_at", "type": "TIMESTAMP", "mode": "NULLABLE", "description": "Set by a backfill: the row no longer marks the document as processed, but stays as history." }
 ]

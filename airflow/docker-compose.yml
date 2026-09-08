@@ -1,0 +1,41 @@
+# Apache Airflow, locally, in Docker. The locked decision for orchestration from Stage 3 on:
+# identical DAG code to Cloud Composer at zero standing cost. Cloud Scheduler still owns the
+# daily ingest and parse triggers; Airflow orchestrates the full chain on demand and runs
+# backfills. Authenticates to GCP with the developer's Application Default Credentials.
+services:
+  airflow:
+    image: apache/airflow:3.0.6
+    container_name: filing-facts-airflow
+    command: standalone
+    ports:
+      - "127.0.0.1:8080:8080" # local only; the UI has a generated admin password
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+      # google provider: default connection uses ADC from the mounted gcloud config
+      AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: "google-cloud-platform://?project=${FF_GCP_PROJECT:-filing-facts-gb}"
+      GOOGLE_APPLICATION_CREDENTIALS: /home/airflow/.config/gcloud/application_default_credentials.json
+      GOOGLE_CLOUD_PROJECT: ${FF_GCP_PROJECT:-filing-facts-gb}
+      FF_GCP_PROJECT: ${FF_GCP_PROJECT:-filing-facts-gb}
+      FF_REGION: ${FF_REGION:-europe-west2}
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./tests:/opt/airflow/tests:ro
+      # Only the ADC file, not the whole gcloud directory (which holds the login refresh token).
+      - ${HOME}/.config/gcloud/application_default_credentials.json:/home/airflow/.config/gcloud/application_default_credentials.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 10

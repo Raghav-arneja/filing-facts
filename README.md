@@ -22,7 +22,7 @@ Each stage is independently shippable and lands as its own pull request.
 |---|---|---|
 | 1 | Ingestion: daily ZIP to Cloud Storage, run ledger in BigQuery, Terraform, CI | Done |
 | 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Done |
-| 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Planned |
+| 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Job, prompts and Airflow live; dbt and cost doc next |
 | 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Planned |
 | 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Planned |
 | 6 | RAG over filing text and an MCP server for natural-language queries | Planned |
@@ -165,6 +165,62 @@ the duplicates. The parser records every tag occurrence: the same fact commonly 
 balance sheet and again in a note, so `facts` holds one row per occurrence and the dbt layer
 reduces that to one row per fact with a test that occurrences agree.
 
+### Stage 3: extraction with Gemini on Vertex AI
+
+```
+Airflow (local, Docker) or `gcloud run jobs execute extract`
+      v
+Cloud Run Job: extract
+      |  1. up to FF_EXTRACT_CAP documents with no answer yet for this (model, prompt)
+      |  2. pin the batch: a `started` ledger row listing document ids
+      |  3. per document: Gemini, structured output against the Pydantic schema,
+      |     temperature 0, billing labels; tokens and cost recorded from the response
+      |  4. schema failure, empty or truncated answer, call failure -> quarantine
+      |     low confidence -> kept and quarantined
+      |  5. `succeeded` ledger row with measured cost
+      v
+filing_facts_raw.extractions / extract_runs / quarantine
+```
+
+Prompts are versioned files in `prompts/extract/`; the version and a content hash travel with
+every row. The model boundary is a Protocol, so tests run against a fake and cost nothing.
+A resume processes only pinned documents with no row yet, so no answer is paid for twice.
+The job stores the validated JSON only; dbt derives the flattened values.
+
+```bash
+make dbt-parse
+uv run python -m filing_facts.extract --dry-run --fake --cap 5     # no GCP, no model calls
+gcloud run jobs execute extract --region europe-west2 --project $PROJECT --wait
+gcloud run jobs execute extract --region europe-west2 --project $PROJECT --wait \
+  --args="--model,gemini-3.8-flash,--cap,50"
+```
+
+The current Gemini Flash line is served from Vertex's `global` endpoint only; europe-west2
+offers 2.5 Flash alone. Filing text therefore leaves the region for inference. It is public
+data.
+
+### Airflow, locally in Docker
+
+Per the locked decision, orchestration from Stage 3 runs on Apache Airflow in Docker rather
+than Cloud Composer, which bills continuously. Cloud Scheduler still fires ingest and parse
+each morning by itself; Airflow runs the full chain on demand, runs extraction (never
+scheduled, because it spends money), and runs backfills. The DAG code is what would run on
+Composer unchanged.
+
+- `filing_facts_daily`: ingest, parse, extract as Cloud Run job executions, with the model,
+  prompt and cap as run parameters.
+- `filing_facts_backfill`: marks the quarantine rows for one stage and reason as released,
+  which keeps them as history but stops them counting as processed, then reruns the stage:
+  parse once per affected source, extract for the chosen model and prompt. Released
+  documents go first in both jobs' selection.
+
+```bash
+make airflow-up          # http://localhost:8080; authenticates to GCP with your ADC
+make airflow-test        # DAG integrity tests inside the Airflow image; CI runs this
+make airflow-trigger CONF='{"extract_cap": 20}'
+make airflow-down
+```
+
 ### dbt staging layer
 
 `dbt/` holds staging views in the `filing_facts_staging` dataset, which Terraform owns. dbt
@@ -235,6 +291,9 @@ src/filing_facts/
   parse/job.py            the Stage 2 job: pinned batches, spooled rows, quarantine
   storage/factory.py      builds store, ledger and sink for both CLIs
   ingest/__main__.py      CLI entrypoint
+  extract/                Stage 3: schema, prompt loader, Gemini boundary, extract job
+prompts/extract/          versioned prompts
+airflow/                  local Airflow: compose file, DAGs, integrity tests
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)
 infra/stage1/             bucket, datasets, tables, IAM, both Cloud Run Jobs, schedules, CI identity

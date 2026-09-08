@@ -91,3 +91,10 @@ jobs:
           workload_identity_provider: projects/309024415803/locations/global/workloadIdentityPools/github/providers/github-oidc
           service_account: ci-dbt@filing-facts-gb.iam.gserviceaccount.com
       - run: make dbt-build
+
+  airflow:
+    name: airflow dag integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: make airflow-test

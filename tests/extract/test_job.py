@@ -183,3 +183,20 @@ def test_fake_model_without_an_answer_is_a_recorded_failure_per_document(
     assert out.status == "succeeded"
     assert out.record.quarantined == 6
     assert {q["reason"] for q in sink.quarantine} == {"ModelCallError"}
+
+
+def test_released_quarantine_rows_are_extracted_first(
+    settings: Settings, sink: MemoryExtractSink
+) -> None:
+    model = by_text({"doc 3": ModelCallError("503")})
+    run(settings, sink=sink, model=model, prompt=prompt())
+    assert run(settings, sink=sink, model=model, prompt=prompt()).status == "skipped_existing"
+    for q in sink.quarantine:
+        q["released_at"] = "2026-09-08T00:00:00+00:00"
+    fixed = by_text({})
+    fixed.model_id = model.model_id
+    out = run(settings, sink=sink, model=fixed, prompt=prompt(), cap=1)
+    assert out.status == "succeeded"
+    assert out.record.extracted == 1
+    assert fixed.calls == ["doc 3"], "the released document goes first"
+    assert len(sink.quarantine) == 1, "the released row stays as history"
