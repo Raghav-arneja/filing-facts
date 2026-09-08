@@ -8,5 +8,7 @@ select
     batch_id,
     quarantined_at,
     model,
-    prompt_id
+    prompt_id,
+    released_at,
+    released_at is not null as released
 from {{ source('raw', 'quarantine') }}

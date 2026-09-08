@@ -87,6 +87,10 @@ class ParseSink(Protocol):
         """Highest cap at which each source has a succeeded or skipped_existing run."""
         ...
 
+    def released_sources(self) -> set[str]:
+        """Sources with parse-stage quarantine rows released by a backfill and not yet redone."""
+        ...
+
     def write_quarantine(self, batch_id: str, spool: Spool) -> bool: ...
 
     def write_facts(self, batch_id: str, spool: Spool) -> bool: ...
@@ -104,7 +108,7 @@ class ExtractSink(Protocol):
     """
 
     def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
-        """Up to `cap` unprocessed documents in a deterministic order."""
+        """Up to `cap` unprocessed documents: released-by-backfill first, then hash order."""
         ...
 
     def documents_by_id(self, ids: list[str]) -> list[DocumentText]: ...

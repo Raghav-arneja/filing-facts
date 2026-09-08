@@ -75,8 +75,11 @@ class MemoryParseSink:
         self._batches: set[str] = set()
 
     def processed_members(self, source_key: str) -> set[str]:
-        rows = self.documents + self.quarantine
+        rows = self.documents + [q for q in self.quarantine if not q.get("released_at")]
         return {str(r["member_name"]) for r in rows if r["source_key"] == source_key}
+
+    def released_sources(self) -> set[str]:
+        return {str(q["source_key"]) for q in self.quarantine if q.get("released_at")}
 
     def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
         finished = {r.batch_id for r in self.runs if r.status == "succeeded"}
@@ -140,6 +143,13 @@ class MemoryExtractSink:
         self.runs: list[ExtractRunRecord] = []
         self._batches: set[str] = set()
 
+    def _extract_quarantine(self, model: str, prompt_id: str) -> list[dict[str, Any]]:
+        return [
+            r
+            for r in self.quarantine
+            if r["stage"] == "extract" and r["model"] == model and r["prompt_id"] == prompt_id
+        ]
+
     def processed_ids(self, model: str, prompt_id: str) -> set[str]:
         ids = {
             str(r["document_id"])
@@ -148,15 +158,20 @@ class MemoryExtractSink:
         }
         ids |= {
             str(r["document_id"])
-            for r in self.quarantine
-            if r["stage"] == "extract" and r["model"] == model and r["prompt_id"] == prompt_id
+            for r in self._extract_quarantine(model, prompt_id)
+            if not r.get("released_at")
         }
         return ids
 
     def pending_documents(self, model: str, prompt_id: str, cap: int) -> list[DocumentText]:
         done = self.processed_ids(model, prompt_id)
+        released = {
+            str(r["document_id"])
+            for r in self._extract_quarantine(model, prompt_id)
+            if r.get("released_at")
+        } - done
         todo = [d for d in self.source_documents if d.document_id not in done]
-        todo.sort(key=lambda d: stable_order(d.document_id))
+        todo.sort(key=lambda d: (d.document_id not in released, stable_order(d.document_id)))
         return todo[:cap]
 
     def documents_by_id(self, ids: list[str]) -> list[DocumentText]:

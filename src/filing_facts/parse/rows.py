@@ -88,6 +88,9 @@ class QuarantineRow:
     quarantined_at: datetime
     model: str | None = None  # extract stage only
     prompt_id: str | None = None  # extract stage only
+    released_at: datetime | None = (
+        None  # set by a backfill; released rows no longer block reprocessing
+    )
 
 
 @dataclass(frozen=True)
