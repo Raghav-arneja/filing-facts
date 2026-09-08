@@ -128,3 +128,13 @@ def test_passages_carry_the_key_the_prompt_asks_the_model_to_cite() -> None:
         [Hit(DOC, 1, "00000002", "Acme Ltd", "2025-12-31", "Net assets | 1", 0.1)]
     )
     assert text.startswith(f"[{DOC}#1] Acme Ltd, period ending 2025-12-31\nNet assets | 1")
+
+
+def test_citations_accept_scottish_and_northern_irish_company_numbers() -> None:
+    from filing_facts.index.search import Hit
+    from filing_facts.mcp.answer import CITATION
+
+    for doc in ("SC041563_20251231", "NI715334_20260430", "01669420_20260331"):
+        assert CITATION.findall(f"Share capital of 1 [{doc}#0].") == [f"{doc}#0"]
+        hit = Hit(doc, 0, doc[:8], None, "2025-12-31", "text", 0.1)
+        assert f"[{doc}#0]" in render_passages([hit])
