@@ -133,6 +133,13 @@ class JsonlParseSink:
                 out.add(src.name)
         return out
 
+    def purge_source(self, source_key: str) -> dict[str, int]:
+        removed: dict[str, int] = {}
+        for table in ("documents", "facts", "quarantine"):
+            removed[table] = len(self._read_table(source_key, table))
+            shutil.rmtree(self._table(source_key, table), ignore_errors=True)
+        return removed
+
     def _runs(self, source_key: str) -> list[dict[str, Any]]:
         return self._read_table(source_key, "parse_runs")
 

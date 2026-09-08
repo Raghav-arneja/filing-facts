@@ -277,3 +277,22 @@ def test_released_quarantine_rows_make_members_pending_again(
     assert out.status == "succeeded"
     assert out.record.selected == 1, "only the released member is reprocessed"
     assert sum(1 for q in sink.quarantine if q["member_name"] == BAD) == 2, "history kept"
+
+
+def test_reparse_purges_then_reprocesses_with_the_current_parser(
+    settings: Settings, store: MemoryRawStore, sink: MemoryParseSink, tmp_path: Path
+) -> None:
+    seed(store, build_zip(MESSY), tmp_path)
+    first = run(settings, store=store, sink=sink, source_key=SOURCE)
+    facts_before = len(sink.facts)
+    again = run(settings, store=store, sink=sink, source_key=SOURCE, reparse=True)
+    assert again.status == "succeeded"
+    assert again.record.batch_id != first.record.batch_id, "a reparse is a new batch"
+    assert len(sink.documents) == len(GOOD), "purged and rewritten once, not appended"
+    assert len(sink.facts) == facts_before
+    assert len(sink.quarantine) == 3
+    assert all(d["parser_version"] == 2 for d in sink.documents)
+    assert any(
+        f["dimensions"] == "MaturitiesOrExpirationPeriodsDimension=WithinOneYear"
+        for f in sink.facts
+    )

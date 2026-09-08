@@ -159,6 +159,28 @@ class BigQueryParseSink:
         )
         return {str(r["source_key"]) for r in self._query(sql)}
 
+    def purge_source(self, source_key: str) -> dict[str, int]:
+        t = self._tables
+        statements = {
+            "facts": (
+                f"DELETE FROM `{t['facts']}` WHERE document_id IN "  # noqa: S608
+                f"(SELECT document_id FROM `{t['documents']}` WHERE source_key = @k)"
+            ),
+            "documents": f"DELETE FROM `{t['documents']}` WHERE source_key = @k",  # noqa: S608
+            "quarantine": (
+                f"DELETE FROM `{t['quarantine']}` WHERE stage = 'parse' AND source_key = @k"  # noqa: S608
+            ),
+        }
+        removed: dict[str, int] = {}
+        for table, sql in statements.items():
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("k", "STRING", source_key)]
+            )
+            job = self._client.query(sql, job_config=job_config, location=self._location)
+            job.result()
+            removed[table] = int(job.num_dml_affected_rows or 0)
+        return removed
+
     def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
         t = self._tables["parse_runs"]
         sql = (

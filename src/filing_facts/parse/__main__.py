@@ -23,7 +23,15 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--source-key", help="Parse this ZIP only. Default: all pending.")
     parser.add_argument("--cap", type=int, help="Override FF_PARSE_CAP for this run.")
     parser.add_argument("--dry-run", action="store_true", help="Local filesystem backends.")
-    return parser.parse_args(argv)
+    parser.add_argument(
+        "--reparse",
+        action="store_true",
+        help="With --source-key: purge and reprocess that source with the current parser.",
+    )
+    args = parser.parse_args(argv)
+    if args.reparse and not args.source_key:
+        parser.error("--reparse requires --source-key")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -38,7 +46,9 @@ def main(argv: list[str] | None = None) -> int:
     log.info("parse_start", keys=keys, cap=cap, dry_run=args.dry_run)
     failed = 0
     for key in keys:
-        outcome = run(settings, store=b.store, sink=b.sink, source_key=key, cap=cap)
+        outcome = run(
+            settings, store=b.store, sink=b.sink, source_key=key, cap=cap, reparse=args.reparse
+        )
         failed += outcome.status == "failed"
     log.info("parse_end", keys=len(keys), failed=failed)
     return 1 if failed else 0
