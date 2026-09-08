@@ -60,7 +60,14 @@ INGEST_RUN_ROW_BYTES = 507
 PARSE_RUN_ROW_BYTES = 9_826
 PARSE_RUN_ROWS_PER_ZIP = 2  # started + succeeded
 FULL_DAY_FILINGS = 10_288  # members in the 2026-09-02 ZIP
-SCHEDULER_JOBS = 2
+SCHEDULER_JOBS = 1  # ingest only; parse runs from the ingested event since Stage 5
+
+# Stage 5 events, measured 2026-09-08: a DocumentEvent message is ~230 bytes, a lifecycle
+# message ~250 bytes; three lifecycle messages per day plus one document message per parsed
+# filing. Pub/Sub's free tier is 10 GiB a month; the dispatcher scales to zero between events.
+DOCUMENT_EVENT_BYTES = 230
+LIFECYCLE_EVENT_BYTES = 250
+LIFECYCLE_EVENTS_PER_DAY = 3
 
 # Extraction, measured from filing_facts_raw.extractions on 2026-09-08 across all prompt
 # versions: mean tokens and latency per filing from the rows the job wrote.
@@ -108,6 +115,10 @@ def main(argv: list[str]) -> int:
     sched_cost = (
         max(0, SCHEDULER_JOBS - PRICES["scheduler_free_jobs"]) * PRICES["scheduler_job_month"]
     )
+    pubsub_mib = (
+        runs
+        * (args.parse_cap * DOCUMENT_EVENT_BYTES + LIFECYCLE_EVENTS_PER_DAY * LIFECYCLE_EVENT_BYTES)
+    ) / (1 << 20)
 
     lines = [
         ("Cloud Run Jobs compute (ingest + parse)", run_cost, "inside free tier"),
@@ -120,10 +131,13 @@ def main(argv: list[str]) -> int:
         ("BigQuery queries (dbt views and tests)", 0.0, "inside the 1 TiB/month free tier"),
         ("Artifact Registry (one image)", ar_cost, "inside free tier"),
         (
-            f"Cloud Scheduler ({SCHEDULER_JOBS} jobs)",
+            f"Cloud Scheduler ({SCHEDULER_JOBS} job)",
             sched_cost,
             f"{PRICES['scheduler_free_jobs']} free per billing account",
         ),
+        ("Pub/Sub (two channels)", 0.0, f"{pubsub_mib:.1f} MiB a month against a 10 GiB free tier"),
+        ("Cloud Run dispatcher service", 0.0, "scales to zero; a few requests a day"),
+        ("Cloud Monitoring and Trace", 0.0, "inside free tiers"),
     ]
     total_usd = sum(c for _, c, _ in lines)
     per_run_usd = total_usd / runs
