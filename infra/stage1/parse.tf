@@ -89,6 +89,14 @@ resource "google_cloud_run_v2_job" "parse" {
           value = var.location
         }
         env {
+          name  = "FF_LIFECYCLE_TOPIC"
+          value = google_pubsub_topic.lifecycle.name
+        }
+        env {
+          name  = "FF_DOCUMENTS_TOPIC"
+          value = google_pubsub_topic.documents.name
+        }
+        env {
           name  = "FF_PARSE_CAP"
           value = tostring(var.parse_cap)
         }
@@ -105,34 +113,7 @@ resource "google_cloud_run_v2_job" "parse" {
   ]
 }
 
-resource "google_cloud_run_v2_job_iam_member" "parse_scheduler_invoker" {
-  name     = google_cloud_run_v2_job.parse.name
-  location = google_cloud_run_v2_job.parse.location
-  role     = "roles/run.invoker"
-  member   = google_service_account.scheduler.member
-}
-
-resource "google_cloud_scheduler_job" "parse_daily" {
-  name        = "parse-daily"
-  description = "Parse every ingested ZIP that is pending at the current cap."
-  region      = var.region
-  schedule    = var.parse_schedule
-  time_zone   = "Europe/London"
-
-  retry_config {
-    retry_count = 1
-  }
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://run.googleapis.com/v2/projects/${var.project_id}/locations/${var.region}/jobs/${google_cloud_run_v2_job.parse.name}:run"
-    oauth_token {
-      service_account_email = google_service_account.scheduler.email
-    }
-  }
-
-  depends_on = [google_cloud_run_v2_job_iam_member.parse_scheduler_invoker]
-}
+# The parse job has no schedule: the dispatcher starts it when ingest publishes an event.
 
 # dbt writes its staging views here. The dataset exists in Terraform so dbt never creates one.
 resource "google_bigquery_dataset" "staging" {

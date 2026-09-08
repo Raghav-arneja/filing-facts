@@ -33,3 +33,7 @@ output "extract_now" {
   description = "Run one extraction batch by hand. Spends money: check extract_cap first."
   value       = "gcloud run jobs execute ${google_cloud_run_v2_job.extract.name} --region ${var.region} --project ${var.project_id} --wait"
 }
+
+output "dispatcher_uri" {
+  value = google_cloud_run_v2_service.dispatcher.uri
+}

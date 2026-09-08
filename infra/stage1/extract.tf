@@ -74,6 +74,14 @@ resource "google_cloud_run_v2_job" "extract" {
           value = var.location
         }
         env {
+          name  = "FF_LIFECYCLE_TOPIC"
+          value = google_pubsub_topic.lifecycle.name
+        }
+        env {
+          name  = "FF_DOCUMENTS_TOPIC"
+          value = google_pubsub_topic.documents.name
+        }
+        env {
           name  = "FF_EXTRACT_MODEL"
           value = var.extract_model
         }

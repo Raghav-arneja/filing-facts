@@ -119,6 +119,14 @@ resource "google_cloud_run_v2_job" "ingest" {
           name  = "FF_MAX_BYTES"
           value = tostring(var.max_bytes)
         }
+        env {
+          name  = "FF_LIFECYCLE_TOPIC"
+          value = google_pubsub_topic.lifecycle.name
+        }
+        env {
+          name  = "FF_DOCUMENTS_TOPIC"
+          value = google_pubsub_topic.documents.name
+        }
       }
     }
   }

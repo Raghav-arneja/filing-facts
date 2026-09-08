@@ -14,6 +14,9 @@ locals {
     "cloudscheduler.googleapis.com",
     "sts.googleapis.com",        # token exchange for Workload Identity Federation (CI)
     "aiplatform.googleapis.com", # Vertex AI: Gemini calls, billed per token (Stage 3)
+    "pubsub.googleapis.com",     # Stage 5 events; free tier 10 GiB/month
+    "monitoring.googleapis.com", # alert policies; free at this volume
+    "cloudtrace.googleapis.com", # traces; free tier 2.5M spans/month
   ]
 }
 
