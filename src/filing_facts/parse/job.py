@@ -42,6 +42,9 @@ from filing_facts.storage.protocols import ParseSink, RawStore, RunLog
 
 log = structlog.get_logger(__name__)
 STAGE = "parse"
+# Bump when the parser's output changes shape or meaning. It is part of the batch id, so a
+# reparse after a bump gets fresh load-job ids instead of colliding with the old batch.
+PARSER_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -86,8 +89,11 @@ def pending_source_keys(runlog: RunLog, sink: ParseSink, cap: int) -> list[str]:
     return [k for k in runlog.succeeded_keys() if caps.get(k, -1) < cap or k in released]
 
 
-def batch_id_for(members: list[str]) -> str:
-    return hashlib.sha256("\n".join(sorted(members)).encode()).hexdigest()[:16]
+def batch_id_for(members: list[str], salt: str = "") -> str:
+    """Stable for the same members and parser. A reparse passes its run id as salt: it is a
+    new batch by definition, so its loads must not collide with the batch it replaces."""
+    key = "\n".join([f"parser={PARSER_VERSION}", salt, *sorted(members)])
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
 
 
 def run(
@@ -98,11 +104,18 @@ def run(
     source_key: str,
     cap: int | None = None,
     now: datetime | None = None,
+    reparse: bool = False,
 ) -> ParseOutcome:
+    """Parse one source. With reparse=True, first purge everything this source produced so
+    every member is processed again by the current parser. That is a deliberate operator
+    action after a parser change, never part of the scheduled path."""
     started = now or datetime.now(UTC)
     run_id = str(uuid.uuid4())
     cap = settings.parse_cap if cap is None else cap
     bound = log.bind(run_id=run_id, source_key=source_key, cap=cap)
+    if reparse:
+        purged = sink.purge_source(source_key)
+        bound.warning("purged_for_reparse", parser_version=PARSER_VERSION, **purged)
 
     def record(
         status: ParseStatus,
@@ -126,6 +139,8 @@ def run(
             finished_at=datetime.now(UTC),
             error=error,
             members=members or [],
+            parser_version=PARSER_VERSION,
+            reparse=reparse,
         )
         sink.record_run(rec)
         return rec
@@ -149,7 +164,7 @@ def run(
                         bound.info("already_parsed", selected=len(selected))
                         rec = record("skipped_existing", None, 0, _Counts())
                         return ParseOutcome("skipped_existing", rec)
-                    batch_id = batch_id_for(members)
+                    batch_id = batch_id_for(members, salt=run_id if reparse else "")
                     record("started", batch_id, len(members), _Counts(), members=members)
                 counts = _process(zf, sink, source_key, batch_id, members, Path(tmp), bound)
         rec = record("succeeded", batch_id, len(members), counts)
@@ -234,6 +249,7 @@ def _process(
                 text=text,
                 batch_id=batch_id,
                 parsed_at=now,
+                parser_version=PARSER_VERSION,
             )
         )
         del data, root, parsed, text

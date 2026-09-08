@@ -23,5 +23,6 @@ select
     period_end,
     instant,
     dimensional,
+    dimensions,
     batch_id
 from {{ source('raw', 'facts') }}

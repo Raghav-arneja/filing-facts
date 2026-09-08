@@ -40,6 +40,7 @@ class DocumentRow:
     text: str
     batch_id: str
     parsed_at: datetime
+    parser_version: int
 
 
 @dataclass(frozen=True)
@@ -61,6 +62,7 @@ class FactRow:
     period_end: date | None
     instant: date | None
     dimensional: bool
+    dimensions: str | None
     batch_id: str
 
     @classmethod
@@ -72,6 +74,7 @@ class FactRow:
             period_end=ctx.end_date if ctx else None,
             instant=ctx.instant if ctx else None,
             dimensional=ctx.dimensional if ctx else False,
+            dimensions=ctx.dimensions if ctx else None,
             batch_id=batch_id,
         )
 
@@ -110,6 +113,8 @@ class ParseRunRecord:
     finished_at: datetime
     error: str | None = None
     members: list[str] = field(default_factory=list[str])  # populated on `started` rows only
+    parser_version: int | None = None
+    reparse: bool = False  # this run purged the source first; earlier runs for it are superseded
 
 
 def parse_run_key(record: ParseRunRecord) -> str:

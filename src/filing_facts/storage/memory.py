@@ -81,6 +81,23 @@ class MemoryParseSink:
     def released_sources(self) -> set[str]:
         return {str(q["source_key"]) for q in self.quarantine if q.get("released_at")}
 
+    def purge_source(self, source_key: str) -> dict[str, int]:
+        doc_ids = {d["document_id"] for d in self.documents if d["source_key"] == source_key}
+        before = (len(self.documents), len(self.facts), len(self.quarantine))
+        self.documents = [d for d in self.documents if d["source_key"] != source_key]
+        self.facts = [f for f in self.facts if f["document_id"] not in doc_ids]
+        self.quarantine = [
+            q
+            for q in self.quarantine
+            if not (q["stage"] == "parse" and q["source_key"] == source_key)
+        ]
+        after = (len(self.documents), len(self.facts), len(self.quarantine))
+        return {
+            "documents": before[0] - after[0],
+            "facts": before[1] - after[1],
+            "quarantine": before[2] - after[2],
+        }
+
     def open_batch(self, source_key: str) -> tuple[str, list[str]] | None:
         finished = {r.batch_id for r in self.runs if r.status == "succeeded"}
         started = [

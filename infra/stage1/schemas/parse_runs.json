@@ -11,5 +11,7 @@
   { "name": "started_at", "type": "TIMESTAMP", "mode": "REQUIRED" },
   { "name": "finished_at", "type": "TIMESTAMP", "mode": "REQUIRED" },
   { "name": "error", "type": "STRING", "mode": "NULLABLE" },
-  { "name": "members", "type": "STRING", "mode": "REPEATED", "description": "Member names pinned to the batch; populated on started rows only." }
+  { "name": "members", "type": "STRING", "mode": "REPEATED", "description": "Member names pinned to the batch; populated on started rows only." },
+  { "name": "parser_version", "type": "INT64", "mode": "NULLABLE" },
+  { "name": "reparse", "type": "BOOL", "mode": "NULLABLE", "description": "True when the run purged the source first; earlier runs for that source are superseded." }
 ]
