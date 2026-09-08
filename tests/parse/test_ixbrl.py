@@ -132,3 +132,12 @@ def test_nil_fact_has_no_value_but_is_kept() -> None:
     assert len(doc.facts) == 1
     assert doc.facts[0].value is None
     assert doc.facts[0].is_numeric
+
+
+def test_dimension_members_are_captured_by_local_name() -> None:
+    doc = parse_ixbrl(fixture("Prod223_4298_09469075_20260228.html"))
+    ctx = "FY_END_20260228_CORE_MATURITIESOREXPIRATIONPERIODSDIMENSION_CORE_WITHINONEYEAR"
+    assert doc.contexts[ctx].dimensions == "MaturitiesOrExpirationPeriodsDimension=WithinOneYear"
+    assert doc.contexts["FY_END_20260228"].dimensions is None
+    plain = [c for c in doc.contexts.values() if not c.dimensional]
+    assert all(c.dimensions is None for c in plain)

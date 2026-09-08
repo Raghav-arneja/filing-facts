@@ -24,6 +24,7 @@ IX_NAMESPACES = frozenset(
     {"http://www.xbrl.org/2013/inlineXBRL", "http://www.xbrl.org/2008/inlineXBRL"}
 )
 XBRLI = "http://www.xbrl.org/2003/instance"
+XBRLDI = "http://xbrl.org/2006/xbrldi"
 
 
 @dataclass(frozen=True)
@@ -35,6 +36,7 @@ class Context:
     end_date: date | None
     instant: date | None
     dimensional: bool  # has a segment or scenario; such facts are slices, not totals
+    dimensions: str | None  # "Dimension=Member;..." local names, sorted; None when not dimensional
 
 
 @dataclass(frozen=True)
@@ -156,6 +158,11 @@ def _contexts(root: etree._Element) -> dict[str, Context]:
             c.find(f"{{{XBRLI}}}entity/{{{XBRLI}}}segment") is not None
             or c.find(f"{{{XBRLI}}}scenario") is not None
         )
+        members = sorted(
+            f"{(m.get('dimension') or '').rpartition(':')[-1]}"
+            f"={(m.text or '').strip().rpartition(':')[-1]}"
+            for m in c.iter(f"{{{XBRLDI}}}explicitMember")
+        )
         out[cid] = Context(
             id=cid,
             entity_scheme=ident.get("scheme") if ident is not None else None,
@@ -164,6 +171,7 @@ def _contexts(root: etree._Element) -> dict[str, Context]:
             end_date=end,
             instant=instant,
             dimensional=dimensional,
+            dimensions=";".join(members) if members else None,
         )
     return out
 
