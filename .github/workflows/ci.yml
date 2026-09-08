@@ -67,6 +67,7 @@ jobs:
       - run: docker run --rm --entrypoint python filing-facts:ci -m filing_facts.parse --help
       - run: docker run --rm --entrypoint python filing-facts:ci -m filing_facts.extract --help
       - run: docker run --rm --entrypoint python filing-facts:ci -c "from filing_facts.extract.prompt import load_prompt; print(load_prompt('v1').id)"
+      - run: docker run --rm --entrypoint python filing-facts:ci -c "import filing_facts.dispatcher.app, uvicorn; print('dispatcher importable')"
 
   dbt:
     name: dbt build against BigQuery
