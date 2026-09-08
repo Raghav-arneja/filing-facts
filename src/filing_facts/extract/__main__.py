@@ -18,6 +18,7 @@ from filing_facts.extract.model import ExtractionModel
 from filing_facts.extract.prompt import load_prompt
 from filing_facts.logging import configure_logging
 from filing_facts.storage.factory import build_backends
+from filing_facts.telemetry import configure_tracing, flush
 
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -61,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
     configure_logging()
     args = _parse_args(argv)
     settings = Settings()
+    configure_tracing("filing-facts-extract", settings.gcp_project, enabled=not args.dry_run)
     model_id = args.model or settings.extract_model
     prompt = load_prompt(args.prompt or settings.prompt_version)
     b = build_backends(settings, dry_run=args.dry_run)
@@ -78,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         publisher=b.publisher,
     )
     log.info("extract_end", status=outcome.status, cost_usd=outcome.record.cost_usd)
+    flush()
     return 1 if outcome.status == "failed" else 0
 
 

@@ -41,6 +41,7 @@ from filing_facts.parse.text import render_text_tree
 from filing_facts.parse.xml import parse_tree
 from filing_facts.storage.memory import stable_order
 from filing_facts.storage.protocols import ParseSink, RawStore, RunLog
+from filing_facts.telemetry import tracer
 
 log = structlog.get_logger(__name__)
 STAGE = "parse"
@@ -115,6 +116,24 @@ def run(
     started = now or datetime.now(UTC)
     run_id = str(uuid.uuid4())
     cap = settings.parse_cap if cap is None else cap
+    with tracer(__name__).start_as_current_span("parse.run") as span:
+        span.set_attributes({"run_id": run_id, "source_key": source_key, "cap": cap})
+        outcome = _run(settings, store, sink, source_key, cap, started, run_id, reparse, publisher)
+        span.set_attribute("status", outcome.status)
+        return outcome
+
+
+def _run(
+    settings: Settings,
+    store: RawStore,
+    sink: ParseSink,
+    source_key: str,
+    cap: int,
+    started: datetime,
+    run_id: str,
+    reparse: bool,
+    publisher: EventPublisher | None,
+) -> ParseOutcome:
     bound = log.bind(run_id=run_id, source_key=source_key, cap=cap)
     if reparse:
         purged = sink.purge_source(source_key)
@@ -223,63 +242,67 @@ def _process(
             )
         )
 
+    span_tracer = tracer(__name__)
     for member in members:
-        try:
-            key = document_key(member)
-        except ParseError as exc:
-            quarantined(member, None, type(exc).__name__, str(exc))
-            continue
-        if key.is_cic_archive:
-            quarantined(
-                member, key.document_id, "nested_archive", "community interest company archive"
-            )
-            continue
-        try:
-            data = zf.read(member)
-            root = parse_tree(data)
-            parsed = parse_ixbrl_tree(root)
-            text = render_text_tree(root)
-        except ParseError as exc:
-            quarantined(member, key.document_id, type(exc).__name__, str(exc))
-            continue
-        except Exception as exc:
-            bound.warning("unexpected_parse_error", member=member, error=str(exc))
-            quarantined(member, key.document_id, f"Unexpected:{type(exc).__name__}", str(exc))
-            continue
+        with span_tracer.start_as_current_span("parse.document", attributes={"member": member}):
+            try:
+                key = document_key(member)
+            except ParseError as exc:
+                quarantined(member, None, type(exc).__name__, str(exc))
+                continue
+            if key.is_cic_archive:
+                quarantined(
+                    member, key.document_id, "nested_archive", "community interest company archive"
+                )
+                continue
+            try:
+                data = zf.read(member)
+                root = parse_tree(data)
+                parsed = parse_ixbrl_tree(root)
+                text = render_text_tree(root)
+            except ParseError as exc:
+                quarantined(member, key.document_id, type(exc).__name__, str(exc))
+                continue
+            except Exception as exc:
+                bound.warning("unexpected_parse_error", member=member, error=str(exc))
+                quarantined(member, key.document_id, f"Unexpected:{type(exc).__name__}", str(exc))
+                continue
 
-        for f in parsed.facts:
-            facts.append(
-                FactRow.from_fact(key.document_id, f, parsed.contexts.get(f.context_id), batch_id)
+            for f in parsed.facts:
+                facts.append(
+                    FactRow.from_fact(
+                        key.document_id, f, parsed.contexts.get(f.context_id), batch_id
+                    )
+                )
+            documents.append(
+                DocumentRow(
+                    document_id=key.document_id,
+                    source_key=source_key,
+                    member_name=member,
+                    company_number=key.company_number,
+                    period_end=key.period_end,
+                    byte_count=len(data),
+                    sha256=hashlib.sha256(data).hexdigest(),
+                    ix_namespace=parsed.ix_namespace,
+                    entity_identifier=parsed.entity_identifier,
+                    fact_count=len(parsed.facts),
+                    text=text,
+                    batch_id=batch_id,
+                    parsed_at=now,
+                    parser_version=PARSER_VERSION,
+                )
             )
-        documents.append(
-            DocumentRow(
-                document_id=key.document_id,
-                source_key=source_key,
-                member_name=member,
-                company_number=key.company_number,
-                period_end=key.period_end,
-                byte_count=len(data),
-                sha256=hashlib.sha256(data).hexdigest(),
-                ix_namespace=parsed.ix_namespace,
-                entity_identifier=parsed.entity_identifier,
-                fact_count=len(parsed.facts),
-                text=text,
-                batch_id=batch_id,
-                parsed_at=now,
-                parser_version=PARSER_VERSION,
+            doc_events.append(
+                DocumentEvent(
+                    document_id=key.document_id,
+                    source_key=source_key,
+                    batch_id=batch_id,
+                    fact_count=len(parsed.facts),
+                    text_chars=len(text),
+                    parsed_at=now,
+                )
             )
-        )
-        doc_events.append(
-            DocumentEvent(
-                document_id=key.document_id,
-                source_key=source_key,
-                batch_id=batch_id,
-                fact_count=len(parsed.facts),
-                text_chars=len(text),
-                parsed_at=now,
-            )
-        )
-        del data, root, parsed, text
+            del data, root, parsed, text
 
     for spool in (documents, facts, quarantine):
         spool.close()

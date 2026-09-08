@@ -40,6 +40,7 @@ from filing_facts.extract.rows import DocumentText, ExtractionRow, ExtractRunRec
 from filing_facts.parse.rows import QuarantineRow
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.protocols import ExtractSink
+from filing_facts.telemetry import tracer
 
 log = structlog.get_logger(__name__)
 STAGE = "extract"
@@ -86,6 +87,26 @@ def run(
     cap = settings.extract_cap if cap is None else cap
     min_conf = settings.extract_min_confidence if min_confidence is None else min_confidence
     workers = settings.extract_threads if threads is None else threads
+    with tracer(__name__).start_as_current_span("extract.run") as span:
+        span.set_attributes(
+            {"run_id": run_id, "model": model.model_id, "prompt_id": prompt.id, "cap": cap}
+        )
+        outcome = _run(sink, model, prompt, cap, min_conf, workers, started, run_id, publisher)
+        span.set_attribute("status", outcome.status)
+        return outcome
+
+
+def _run(
+    sink: ExtractSink,
+    model: ExtractionModel,
+    prompt: Prompt,
+    cap: int,
+    min_conf: float,
+    workers: int,
+    started: datetime,
+    run_id: str,
+    publisher: EventPublisher | None,
+) -> ExtractOutcome:
     bound = log.bind(run_id=run_id, model=model.model_id, prompt=prompt.id, cap=cap)
 
     def record(
