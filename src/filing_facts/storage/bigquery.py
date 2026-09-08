@@ -320,7 +320,8 @@ class BigQueryExtractSink:
     def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
         sql = (
             f"SELECT document_id, source_key, text FROM `{self._t['documents']}` "  # noqa: S608
-            "WHERE document_id IN UNNEST(@ids)"
+            "WHERE document_id IN UNNEST(@ids) "
+            "QUALIFY ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY parsed_at DESC) = 1"
         )
         rows = self._query(sql, [bigquery.ArrayQueryParameter("ids", "STRING", ids)])
         return [
@@ -416,10 +417,12 @@ class BigQueryIndexSink:
 
     def pending_documents(self, embedding_model: str, cap: int) -> list[DocumentText]:
         t = self._t
+        # A reparse appends a second row per document; embed the latest text only.
         sql = (
             f"SELECT d.document_id, d.source_key, d.text FROM `{t['documents']}` d "  # noqa: S608
             f"WHERE NOT EXISTS (SELECT 1 FROM `{t['chunks']}` c "
             "  WHERE c.document_id = d.document_id AND c.embedding_model = @m) "
+            "QUALIFY ROW_NUMBER() OVER (PARTITION BY d.document_id ORDER BY d.parsed_at DESC) = 1 "
             "ORDER BY TO_HEX(SHA256(d.document_id)) LIMIT @cap"
         )
         rows = self._query(
@@ -436,7 +439,8 @@ class BigQueryIndexSink:
     def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
         sql = (
             f"SELECT document_id, source_key, text FROM `{self._t['documents']}` "  # noqa: S608
-            "WHERE document_id IN UNNEST(@ids)"
+            "WHERE document_id IN UNNEST(@ids) "
+            "QUALIFY ROW_NUMBER() OVER (PARTITION BY document_id ORDER BY parsed_at DESC) = 1"
         )
         rows = self._query(sql, [bigquery.ArrayQueryParameter("ids", "STRING", ids)])
         return [

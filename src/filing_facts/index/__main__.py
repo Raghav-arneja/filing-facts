@@ -52,7 +52,10 @@ def main(argv: list[str] | None = None) -> int:
         from filing_facts.index.search import BigQuerySearchBackend, Searcher
 
         backend = BigQuerySearchBackend(
-            settings.gcp_project, settings.bq_dataset, "filing_facts_staging", settings.bq_location
+            settings.gcp_project,
+            settings.bq_dataset,
+            settings.bq_staging_dataset,
+            settings.bq_location,
         )
         for hit in Searcher(embedder, backend).search(args.search, k=args.k):
             who = hit.company_name or hit.company_number
