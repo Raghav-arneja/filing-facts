@@ -62,6 +62,16 @@ PARSE_RUN_ROWS_PER_ZIP = 2  # started + succeeded
 FULL_DAY_FILINGS = 10_288  # members in the 2026-09-02 ZIP
 SCHEDULER_JOBS = 2
 
+# Stage 3 extraction, measured from filing_facts_raw.extractions on 2026-09-08 (prompt v1):
+# mean tokens per filing and the mean cost per filing, both from the rows the job wrote.
+# Query: SELECT model, AVG(input_tokens), AVG(output_tokens), AVG(thinking_tokens),
+#        SUM(cost_usd)/COUNT(*) FROM extractions GROUP BY model.
+EXTRACTION_MEASURED: dict[str, tuple[int, int, int, int, float]] = {
+    # model: (filings, mean input, mean output, mean thinking, mean latency ms)
+    "gemini-3.1-flash-lite": (321, 6166, 1157, 0, 3713),
+    "gemini-3.8-flash": (100, 6043, 1165, 2330, 20258),
+}
+
 
 def gib(n: int | float) -> float:
     return n / (1 << 30)
@@ -137,6 +147,34 @@ def main(argv: list[str]) -> int:
         out.append(f"| {name} | {usd:.4f} | {usd * GBP_PER_USD:.4f} | {note} |")
     out += [
         f"| **Total** | **{total_usd:.4f}** | **{total_usd * GBP_PER_USD:.4f}** | |",
+        "",
+        "## Extraction cost per 1,000 filings (Stage 3)",
+        "",
+        "Not a monthly line: extraction runs on demand. Token means are measured from the rows "
+        "the job wrote; prices are the list rates in `src/filing_facts/extract/pricing.py`.",
+        "",
+        "| Model | Filings measured | Mean tokens in / out / thinking | Mean latency "
+        "| USD per 1,000 | GBP per 1,000 |",
+        "|---|---:|---|---:|---:|---:|",
+    ]
+    from filing_facts.extract.pricing import cost_usd as _cost
+
+    _, lite_in, lite_out, lite_think, _ = EXTRACTION_MEASURED["gemini-3.1-flash-lite"]
+    lite_month = (
+        _cost("gemini-3.1-flash-lite", lite_in, lite_out, lite_think) * args.parse_cap * runs
+    )
+
+    for model, (n, tin, tout, tthink, ms) in EXTRACTION_MEASURED.items():
+        per_1000 = _cost(model, tin, tout, tthink) * 1000
+        out.append(
+            f"| {model} | {n} | {tin:,} / {tout:,} / {tthink:,} | {ms / 1000:.1f} s "
+            f"| {per_1000:.2f} | {per_1000 * GBP_PER_USD:.2f} |"
+        )
+    out += [
+        "",
+        f"Extracting every filing the parse job stores ({args.parse_cap} per day at the current "
+        f"cap) with the cheaper model would cost about USD {lite_month:.2f} a month; the full "
+        f"daily volume would be about {full_day_multiple:.0f} times that.",
         "",
         f"Cost per run: USD {per_run_usd:.5f} (GBP {per_run_usd * GBP_PER_USD:.5f}).",
         "",
