@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
+from filing_facts.index.rows import IndexRunRecord, index_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key, to_row
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.memory import dedupe_key, stable_order
@@ -270,6 +271,78 @@ class JsonlExtractSink:
         target = (
             self._dir(record.model, record.prompt_id, "extract_runs")
             / f"{extract_run_key(record)}.jsonl"
+        )
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_suffix(".jsonl.tmp")
+        tmp.write_text(json.dumps(to_row(record)) + "\n", encoding="utf-8")
+        os.replace(tmp, target)
+        return True
+
+
+class JsonlIndexSink:
+    """Reads documents from the local parse output; writes chunks under <root>/<model>/."""
+
+    def __init__(self, parsed_root: Path, root: Path) -> None:
+        self.parsed_root = parsed_root
+        self.root = root
+        root.mkdir(parents=True, exist_ok=True)
+
+    def _all_documents(self) -> list[DocumentText]:
+        out: list[DocumentText] = []
+        for f in sorted(self.parsed_root.glob("*/documents/*.jsonl")):
+            for r in read_jsonl(f):
+                out.append(
+                    DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"]))
+                )
+        return out
+
+    def _read(self, model: str, table: str) -> list[dict[str, Any]]:
+        rows: list[dict[str, Any]] = []
+        for f in sorted((self.root / model / table).glob("*.jsonl")):
+            rows.extend(read_jsonl(f))
+        return rows
+
+    def processed_ids(self, embedding_model: str) -> set[str]:
+        return {str(r["document_id"]) for r in self._read(embedding_model, "chunks")}
+
+    def pending_documents(self, embedding_model: str, cap: int) -> list[DocumentText]:
+        done = self.processed_ids(embedding_model)
+        todo = [d for d in self._all_documents() if d.document_id not in done]
+        todo.sort(key=lambda d: stable_order(d.document_id))
+        return todo[:cap]
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        wanted = set(ids)
+        return [d for d in self._all_documents() if d.document_id in wanted]
+
+    def open_batch(self, embedding_model: str) -> tuple[str, list[str]] | None:
+        runs = self._read(embedding_model, "index_runs")
+        finished = {r["batch_id"] for r in runs if r["status"] == "succeeded"}
+        started = [r for r in runs if r["status"] == "started" and r["batch_id"] not in finished]
+        if not started:
+            return None
+        last = max(started, key=lambda r: datetime.fromisoformat(str(r["started_at"])))
+        return str(last["batch_id"]), [str(i) for i in last["document_ids"]]
+
+    def _write(self, model: str, table: str, name: str, spool: Spool) -> bool:
+        target = self.root / model / table / f"{name}.jsonl"
+        if target.exists():
+            return False
+        target.parent.mkdir(parents=True, exist_ok=True)
+        spool.close()
+        tmp = target.with_suffix(".jsonl.tmp")
+        shutil.copyfile(spool.path, tmp)
+        os.replace(tmp, target)
+        return True
+
+    def write_chunks(self, batch_id: str, spool: Spool) -> bool:
+        return self._write(spool.model, "chunks", f"{batch_id}-{spool.attempt}", spool)
+
+    def record_run(self, record: IndexRunRecord) -> bool:
+        target = (
+            self.root / record.embedding_model / "index_runs" / f"{index_run_key(record)}.jsonl"
         )
         if target.exists():
             return False

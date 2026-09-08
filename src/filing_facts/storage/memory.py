@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
+from filing_facts.index.rows import IndexRunRecord, index_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.protocols import AlreadyExistsError, RunRecord
@@ -230,6 +231,61 @@ class MemoryExtractSink:
 
     def record_run(self, record: ExtractRunRecord) -> bool:
         if not self._once(f"xr:{extract_run_key(record)}"):
+            return False
+        self.runs.append(record)
+        return True
+
+
+class MemoryIndexSink:
+    def __init__(self, documents: list[DocumentText] | None = None) -> None:
+        self.source_documents: list[DocumentText] = list(documents or [])
+        self.chunks: list[dict[str, Any]] = []
+        self.runs: list[IndexRunRecord] = []
+        self._batches: set[str] = set()
+
+    def processed_ids(self, embedding_model: str) -> set[str]:
+        return {
+            str(c["document_id"]) for c in self.chunks if c["embedding_model"] == embedding_model
+        }
+
+    def pending_documents(self, embedding_model: str, cap: int) -> list[DocumentText]:
+        done = self.processed_ids(embedding_model)
+        todo = [d for d in self.source_documents if d.document_id not in done]
+        todo.sort(key=lambda d: stable_order(d.document_id))
+        return todo[:cap]
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        wanted = set(ids)
+        return [d for d in self.source_documents if d.document_id in wanted]
+
+    def open_batch(self, embedding_model: str) -> tuple[str, list[str]] | None:
+        finished = {r.batch_id for r in self.runs if r.status == "succeeded"}
+        started = [
+            r
+            for r in self.runs
+            if r.embedding_model == embedding_model
+            and r.status == "started"
+            and r.batch_id not in finished
+        ]
+        if not started:
+            return None
+        last = max(started, key=lambda r: r.started_at)
+        return last.batch_id or "", list(last.document_ids)
+
+    def _once(self, key: str) -> bool:
+        if key in self._batches:
+            return False
+        self._batches.add(key)
+        return True
+
+    def write_chunks(self, batch_id: str, spool: Spool) -> bool:
+        if not self._once(f"ic:{batch_id}:{spool.attempt}"):
+            return False
+        self.chunks.extend(spool.rows())
+        return True
+
+    def record_run(self, record: IndexRunRecord) -> bool:
+        if not self._once(f"ir:{index_run_key(record)}"):
             return False
         self.runs.append(record)
         return True

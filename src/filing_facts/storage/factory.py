@@ -7,7 +7,7 @@ from pathlib import Path
 
 from filing_facts.config import Settings
 from filing_facts.events.publisher import EventPublisher, NullPublisher
-from filing_facts.storage.protocols import ExtractSink, ParseSink, RawStore, RunLog
+from filing_facts.storage.protocols import ExtractSink, IndexSink, ParseSink, RawStore, RunLog
 
 
 @dataclass(frozen=True)
@@ -17,12 +17,14 @@ class Backends:
     sink: ParseSink
     extract_sink: ExtractSink
     publisher: EventPublisher
+    index_sink: IndexSink
 
 
 def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
     if dry_run:
         from filing_facts.storage.local import (
             JsonlExtractSink,
+            JsonlIndexSink,
             JsonlParseSink,
             JsonlRunLog,
             LocalRawStore,
@@ -35,6 +37,7 @@ def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
             sink=JsonlParseSink(root / "parsed"),
             extract_sink=JsonlExtractSink(root / "parsed", root / "extract"),
             publisher=NullPublisher(),
+            index_sink=JsonlIndexSink(root / "parsed", root / "index"),
         )
 
     missing = [n for n in ("gcp_project", "raw_bucket") if not getattr(settings, n)]
@@ -44,7 +47,12 @@ def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
 
     from google.cloud import bigquery, storage
 
-    from filing_facts.storage.bigquery import BigQueryExtractSink, BigQueryParseSink, BigQueryRunLog
+    from filing_facts.storage.bigquery import (
+        BigQueryExtractSink,
+        BigQueryIndexSink,
+        BigQueryParseSink,
+        BigQueryRunLog,
+    )
     from filing_facts.storage.gcs import GcsRawStore
 
     bq = bigquery.Client(project=settings.gcp_project, location=settings.bq_location)
@@ -72,6 +80,14 @@ def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
             extract_runs=settings.extract_runs_table,
         ),
         publisher=_publisher(settings),
+        index_sink=BigQueryIndexSink(
+            bq,
+            settings.bq_dataset,
+            settings.bq_location,
+            documents=settings.documents_table,
+            chunks=settings.chunks_table,
+            index_runs=settings.index_runs_table,
+        ),
     )
 
 

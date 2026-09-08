@@ -23,6 +23,7 @@ PRICES: dict[str, Price] = {
     "gemini-3.1-flash-lite": Price(0.25, 1.50),
     "gemini-3.8-flash": Price(0.75, 3.75),  # introductory; doubles 2027-01-01
     "gemini-2.5-flash-lite": Price(0.10, 0.40),  # retires 2026-10-16; not used
+    "gemini-embedding-2": Price(0.20, 0.0),  # embeddings: input tokens only
 }
 
 

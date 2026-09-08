@@ -15,6 +15,7 @@ from google.api_core.exceptions import Conflict
 from google.cloud import bigquery
 
 from filing_facts.extract.rows import DocumentText, ExtractRunRecord, extract_run_key
+from filing_facts.index.rows import IndexRunRecord, index_run_key
 from filing_facts.parse.rows import ParseRunRecord, parse_run_key, to_row
 from filing_facts.parse.spool import Spool
 from filing_facts.storage.memory import dedupe_key
@@ -369,6 +370,109 @@ class BigQueryExtractSink:
             job = self._client.load_table_from_json(
                 [json.loads(json.dumps(to_row(record)))],
                 self._t["extract_runs"],
+                job_id=job_id,
+                location=self._location,
+                job_config=job_config,
+            )
+        except Conflict:
+            return False
+        job.result()
+        return True
+
+
+class BigQueryIndexSink:
+    def __init__(
+        self,
+        client: bigquery.Client,
+        dataset: str,
+        location: str,
+        *,
+        documents: str,
+        chunks: str,
+        index_runs: str,
+    ) -> None:
+        self._client = client
+        self._location = location
+        base = f"{client.project}.{dataset}"
+        self._t = {
+            "documents": f"{base}.{documents}",
+            "chunks": f"{base}.{chunks}",
+            "index_runs": f"{base}.{index_runs}",
+        }
+
+    def _query(self, sql: str, params: list[Any]) -> list[Any]:
+        job_config = bigquery.QueryJobConfig(query_parameters=params)
+        return list(
+            self._client.query(sql, job_config=job_config, location=self._location).result()
+        )
+
+    def processed_ids(self, embedding_model: str) -> set[str]:
+        sql = (
+            f"SELECT DISTINCT document_id FROM `{self._t['chunks']}` "  # noqa: S608
+            "WHERE embedding_model = @m"
+        )
+        rows = self._query(sql, [bigquery.ScalarQueryParameter("m", "STRING", embedding_model)])
+        return {str(r["document_id"]) for r in rows}
+
+    def pending_documents(self, embedding_model: str, cap: int) -> list[DocumentText]:
+        t = self._t
+        sql = (
+            f"SELECT d.document_id, d.source_key, d.text FROM `{t['documents']}` d "  # noqa: S608
+            f"WHERE NOT EXISTS (SELECT 1 FROM `{t['chunks']}` c "
+            "  WHERE c.document_id = d.document_id AND c.embedding_model = @m) "
+            "ORDER BY TO_HEX(SHA256(d.document_id)) LIMIT @cap"
+        )
+        rows = self._query(
+            sql,
+            [
+                bigquery.ScalarQueryParameter("m", "STRING", embedding_model),
+                bigquery.ScalarQueryParameter("cap", "INT64", cap),
+            ],
+        )
+        return [
+            DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"])) for r in rows
+        ]
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]:
+        sql = (
+            f"SELECT document_id, source_key, text FROM `{self._t['documents']}` "  # noqa: S608
+            "WHERE document_id IN UNNEST(@ids)"
+        )
+        rows = self._query(sql, [bigquery.ArrayQueryParameter("ids", "STRING", ids)])
+        return [
+            DocumentText(str(r["document_id"]), str(r["source_key"]), str(r["text"])) for r in rows
+        ]
+
+    def open_batch(self, embedding_model: str) -> tuple[str, list[str]] | None:
+        t = self._t["index_runs"]
+        sql = (
+            f"SELECT batch_id, document_ids FROM `{t}` s "  # noqa: S608
+            "WHERE embedding_model = @m AND status = 'started' AND NOT EXISTS ("
+            f"  SELECT 1 FROM `{t}` d WHERE d.embedding_model = @m AND d.status = 'succeeded' "
+            "  AND d.batch_id = s.batch_id) ORDER BY started_at DESC LIMIT 1"
+        )
+        rows = self._query(sql, [bigquery.ScalarQueryParameter("m", "STRING", embedding_model)])
+        if not rows:
+            return None
+        return str(rows[0]["batch_id"]), [str(i) for i in rows[0]["document_ids"]]
+
+    def write_chunks(self, batch_id: str, spool: Spool) -> bool:
+        spool.close()
+        if spool.count == 0:
+            return True
+        job = f"index-chunks-{spool.model}-{batch_id}-{spool.attempt}"
+        return _load_file(self._client, self._t["chunks"], self._location, job, str(spool.path))
+
+    def record_run(self, record: IndexRunRecord) -> bool:
+        job_config = bigquery.LoadJobConfig(
+            source_format=bigquery.SourceFormat.NEWLINE_DELIMITED_JSON,
+            write_disposition=bigquery.WriteDisposition.WRITE_APPEND,
+        )
+        job_id = _JOB_ID_SAFE.sub("_", index_run_key(record))
+        try:
+            job = self._client.load_table_from_json(
+                [json.loads(json.dumps(to_row(record)))],
+                self._t["index_runs"],
                 job_id=job_id,
                 location=self._location,
                 job_config=job_config,
