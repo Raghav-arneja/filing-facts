@@ -27,7 +27,9 @@ def test_daily_chain_is_ingest_parse_extract() -> None:
 
 def test_backfill_releases_then_branches_by_stage() -> None:
     dag = _bag().dags["filing_facts_backfill"]
+    assert dag.get_task("release_quarantined").upstream_task_ids == {"handle_dead_letters"}
     assert dag.get_task("which_stage").upstream_task_ids == {"release_quarantined"}
+    assert dag.params["dead_letters"] == "none"
     assert dag.get_task("rerun_extract").upstream_task_ids == {"which_stage"}
     assert dag.get_task("released_parse_sources").upstream_task_ids == {"which_stage"}
     assert dag.get_task("rerun_parse").upstream_task_ids == {"released_parse_sources"}

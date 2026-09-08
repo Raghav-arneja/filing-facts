@@ -11,6 +11,9 @@ services:
       - "127.0.0.1:8080:8080" # local only; the UI has a generated admin password
     environment:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      # The metadata database is ephemeral (no volume): every `make airflow-up` is a fresh
+      # install. DAGs must not start paused, or a trigger sits queued forever.
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
       AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"

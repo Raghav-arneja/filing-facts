@@ -16,7 +16,10 @@ Inputs (measured, see script header):
 | BigQuery storage (ledgers, documents, facts) | 0.0000 | 0.0000 | 364 MiB after one month; free tier is 10 GiB |
 | BigQuery queries (dbt views and tests) | 0.0000 | 0.0000 | inside the 1 TiB/month free tier |
 | Artifact Registry (one image) | 0.0000 | 0.0000 | inside free tier |
-| Cloud Scheduler (2 jobs) | 0.0000 | 0.0000 | 3 free per billing account |
+| Cloud Scheduler (1 job) | 0.0000 | 0.0000 | 3 free per billing account |
+| Pub/Sub (two channels) | 0.0000 | 0.0000 | 2.4 MiB a month against a 10 GiB free tier |
+| Cloud Run dispatcher service | 0.0000 | 0.0000 | scales to zero; a few requests a day |
+| Cloud Monitoring and Trace | 0.0000 | 0.0000 | inside free tiers |
 | **Total** | **0.0688** | **0.0536** | |
 
 ## Extraction cost per 1,000 filings (Stage 3)
