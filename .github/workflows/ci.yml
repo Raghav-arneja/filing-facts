@@ -91,6 +91,8 @@ jobs:
           workload_identity_provider: projects/309024415803/locations/global/workloadIdentityPools/github/providers/github-oidc
           service_account: ci-dbt@filing-facts-gb.iam.gserviceaccount.com
       - run: make dbt-build
+      # The README results block must match the views CI just built.
+      - run: make eval-check EVAL_DATASET=filing_facts_ci
 
   airflow:
     name: airflow dag integrity

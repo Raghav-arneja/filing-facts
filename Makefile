@@ -10,7 +10,8 @@ DBT_ARGS   = --project-dir dbt --profiles-dir dbt
 
 .PHONY: help sync lint typecheck test check secrets cost run-local docker-build docker-run push \
         tf-fmt tf-validate bootstrap-init bootstrap-apply init plan apply destroy \
-        dbt-parse dbt-run dbt-test dbt-build dbt airflow-up airflow-down airflow-test airflow-trigger
+        dbt-parse dbt-run dbt-test dbt-build dbt airflow-up airflow-down airflow-test airflow-trigger \
+        eval eval-check
 
 help: ## List targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-16s %s\n", $$1, $$2}'
@@ -108,3 +109,10 @@ airflow-test: ## DAG integrity tests inside the Airflow image (what CI runs)
 
 airflow-trigger: ## Trigger the daily DAG once (ARGS='--conf {"extract_cap": 50}')
 	$(AIRFLOW) exec airflow airflow dags trigger filing_facts_daily $(ARGS)
+
+eval: ## Query the evaluation views and write the results into README.md and docs/eval.md
+	FF_GCP_PROJECT=$(PROJECT) uv run python -m filing_facts.eval --write
+
+eval-check: ## Fail if the README results block no longer matches the views (CI runs this)
+	FF_GCP_PROJECT=$(PROJECT) uv run python -m filing_facts.eval --check --dataset $(EVAL_DATASET)
+EVAL_DATASET ?= filing_facts_staging
