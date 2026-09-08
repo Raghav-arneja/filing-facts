@@ -75,6 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         cap=args.cap,
         min_confidence=args.min_confidence,
         threads=args.threads,
+        publisher=b.publisher,
     )
     log.info("extract_end", status=outcome.status, cost_usd=outcome.record.cost_usd)
     return 1 if outcome.status == "failed" else 0
