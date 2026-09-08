@@ -37,3 +37,11 @@ def test_malformed_prompt_files_are_rejected(tmp_path: Path) -> None:
 
 def test_available_versions_lists_repo_prompts() -> None:
     assert "v1" in available_versions()
+
+
+def test_v2_differs_from_v1_only_in_the_rules_it_claims() -> None:
+    v1, v2 = load_prompt("v1"), load_prompt("v2")
+    assert v1.id != v2.id
+    assert v2.user_template == v1.user_template
+    assert "Creditors are amounts owed and are" in v2.system
+    assert "Figures in brackets are negative" not in v2.system
