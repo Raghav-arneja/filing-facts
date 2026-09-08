@@ -52,3 +52,14 @@ def test_billing_label_values_meet_gcp_rules(raw: str, expected: str) -> None:
     assert v == expected
     assert len(v) <= 63
     assert all(c.islower() or c.isdigit() or c in "_-" for c in v)
+
+
+def test_variants_share_the_base_price_and_unknown_bases_are_unpriced() -> None:
+    from filing_facts.extract.pricing import base_model, is_priced
+
+    assert base_model("gemini-3.8-flash@t0") == "gemini-3.8-flash"
+    assert is_priced("gemini-3.8-flash@t0")
+    assert not is_priced("gemini-99@t0")
+    assert cost_usd("gemini-3.8-flash@t0", 1_000_000, 0) == cost_usd(
+        "gemini-3.8-flash", 1_000_000, 0
+    )

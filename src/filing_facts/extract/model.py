@@ -152,10 +152,16 @@ class GeminiModel:
         location: str = "global",
         labels: dict[str, str] | None = None,
         max_attempts: int = 4,
+        thinking_budget: int | None = None,
     ) -> None:
+        """thinking_budget=0 disables thinking on models that support it. The variant is
+        recorded as `<model>@t<budget>` so its rows, cost and metrics stay separate from
+        the default configuration of the same model."""
         from google import genai
 
-        self._model_id = model_id
+        self._vertex_model = model_id
+        self._model_id = model_id if thinking_budget is None else f"{model_id}@t{thinking_budget}"
+        self._thinking_budget = thinking_budget
         self._client = genai.Client(vertexai=True, project=project, location=location)
         self._labels = labels or {}
         self._max_attempts = max_attempts
@@ -187,7 +193,7 @@ class GeminiModel:
             started = time.perf_counter()
             try:
                 response = self._client.models.generate_content(
-                    model=self._model_id, contents=prompt.render(text), config=config
+                    model=self._vertex_model, contents=prompt.render(text), config=config
                 )
             except errors.APIError as exc:
                 if exc.code in (429, 500, 502, 503, 504) and attempt < self._max_attempts:

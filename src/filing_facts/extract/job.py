@@ -32,7 +32,7 @@ import structlog
 
 from filing_facts.config import Settings
 from filing_facts.extract.model import ExtractionError, ExtractionModel, ModelResponse
-from filing_facts.extract.pricing import PRICES, cost_usd
+from filing_facts.extract.pricing import cost_usd, is_priced
 from filing_facts.extract.prompt import Prompt
 from filing_facts.extract.rows import DocumentText, ExtractionRow, ExtractRunRecord, ExtractStatus
 from filing_facts.parse.rows import QuarantineRow
@@ -118,7 +118,7 @@ def run(
     docs: list[DocumentText] = []
     missing: list[str] = []
     try:
-        if not is_fake(model.model_id) and model.model_id not in PRICES:
+        if not is_fake(model.model_id) and not is_priced(model.model_id):
             raise UnpricedModelError(model.model_id)
         resumed = sink.open_batch(model.model_id, prompt.id)
         if resumed is not None:
@@ -211,7 +211,7 @@ def _process(
     extractions = Spool(tmp / "extractions.ndjson", **meta)
     quarantine = Spool(tmp / "quarantine.ndjson", **meta)
     counts = _Counts()
-    priced = model.model_id in PRICES
+    priced = is_priced(model.model_id)
 
     def quarantined(document_id: str, source_key: str, reason: str, error: str) -> None:
         quarantine.append(

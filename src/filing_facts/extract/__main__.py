@@ -27,12 +27,19 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--cap", type=int, help="Documents this run. Default: FF_EXTRACT_CAP.")
     parser.add_argument("--min-confidence", type=float)
     parser.add_argument("--threads", type=int)
+    parser.add_argument(
+        "--thinking-budget",
+        type=int,
+        help="Gemini thinking budget in tokens; 0 disables thinking. Recorded as model@t<n>.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Local filesystem backends.")
     parser.add_argument("--fake", action="store_true", help="Fake model; no calls, no cost.")
     return parser.parse_args(argv)
 
 
-def _model(settings: Settings, model_id: str, fake: bool) -> ExtractionModel:
+def _model(
+    settings: Settings, model_id: str, fake: bool, thinking_budget: int | None
+) -> ExtractionModel:
     if fake:
         from tests.extract.conftest import good_answer
 
@@ -46,6 +53,7 @@ def _model(settings: Settings, model_id: str, fake: bool) -> ExtractionModel:
         project=settings.gcp_project,
         location=settings.vertex_location,
         labels={"app": "filing-facts", "stage": "3"},
+        thinking_budget=thinking_budget,
     )
 
 
@@ -56,7 +64,7 @@ def main(argv: list[str] | None = None) -> int:
     model_id = args.model or settings.extract_model
     prompt = load_prompt(args.prompt or settings.prompt_version)
     b = build_backends(settings, dry_run=args.dry_run)
-    model = _model(settings, model_id, args.fake)
+    model = _model(settings, model_id, args.fake, args.thinking_budget)
     log = structlog.get_logger(__name__)
     log.info("extract_start", model=model.model_id, prompt=prompt.id, dry_run=args.dry_run)
     outcome = run(

@@ -62,14 +62,15 @@ PARSE_RUN_ROWS_PER_ZIP = 2  # started + succeeded
 FULL_DAY_FILINGS = 10_288  # members in the 2026-09-02 ZIP
 SCHEDULER_JOBS = 2
 
-# Stage 3 extraction, measured from filing_facts_raw.extractions on 2026-09-08 (prompt v1):
-# mean tokens per filing and the mean cost per filing, both from the rows the job wrote.
-# Query: SELECT model, AVG(input_tokens), AVG(output_tokens), AVG(thinking_tokens),
-#        SUM(cost_usd)/COUNT(*) FROM extractions GROUP BY model.
+# Extraction, measured from filing_facts_raw.extractions on 2026-09-08 across all prompt
+# versions: mean tokens and latency per filing from the rows the job wrote.
+# Query: SELECT model, COUNT(*), AVG(input_tokens), AVG(output_tokens), AVG(thinking_tokens),
+#        AVG(latency_ms) FROM extractions GROUP BY model.
 EXTRACTION_MEASURED: dict[str, tuple[int, int, int, int, float]] = {
     # model: (filings, mean input, mean output, mean thinking, mean latency ms)
-    "gemini-3.1-flash-lite": (321, 6166, 1157, 0, 3713),
-    "gemini-3.8-flash": (100, 6043, 1165, 2330, 20258),
+    "gemini-3.1-flash-lite": (621, 6254, 1152, 0, 3820),
+    "gemini-3.8-flash": (300, 6270, 1167, 2335, 21810),
+    "gemini-3.8-flash@t0": (100, 6351, 1169, 2643, 25162),  # thinking budget 0, ignored
 }
 
 

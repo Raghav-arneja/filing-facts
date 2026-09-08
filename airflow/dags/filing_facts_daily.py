@@ -29,7 +29,7 @@ with DAG(
     params={
         "extract_model": Param("gemini-3.1-flash-lite", type="string"),
         "extract_cap": Param(300, type="integer", minimum=1, maximum=2000),
-        "prompt": Param("v1", type="string"),
+        "prompt": Param("v2", type="string"),
     },
 ) as dag:
     ingest = CloudRunExecuteJobOperator(

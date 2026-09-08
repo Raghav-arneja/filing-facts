@@ -26,8 +26,17 @@ PRICES: dict[str, Price] = {
 }
 
 
+def base_model(model_id: str) -> str:
+    """'gemini-3.8-flash@t0' -> 'gemini-3.8-flash'. Variants share the base model's price."""
+    return model_id.split("@", 1)[0]
+
+
+def is_priced(model_id: str) -> bool:
+    return base_model(model_id) in PRICES
+
+
 def cost_usd(model: str, input_tokens: int, output_tokens: int, thinking_tokens: int = 0) -> float:
-    p = PRICES[model]
+    p = PRICES[base_model(model)]
     return (
         input_tokens * p.input_per_million
         + (output_tokens + thinking_tokens) * p.output_per_million

@@ -95,7 +95,7 @@ variable "extract_model" {
 
 variable "prompt_version" {
   type    = string
-  default = "v1"
+  default = "v2"
 }
 
 variable "extract_cap" {

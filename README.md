@@ -8,13 +8,87 @@ real rather than vibes.
 This repository is a public portfolio project built on public data. Design rationale and the
 staged build plan are in [PROJECT-BRIEF.md](PROJECT-BRIEF.md).
 
-**Status: Stages 1 to 3 complete.** Each publication
+**Status: Stages 1 to 4 complete.** Each publication
 morning one Cloud Run Job fetches the daily Companies House accounts ZIP into Cloud Storage
 and records it in BigQuery; an hour later a second job parses a capped sample of the filings
 into `documents`, `facts` and `quarantine` tables. On demand, a third job asks Gemini on
 Vertex AI to extract the headline facts from the plain text, storing every answer with its
-measured cost. dbt staging views and tests sit over all of it. Nothing is scored yet: that is
-Stage 4, and its results table will replace this paragraph.
+measured cost. dbt staging views and tests sit over all of it, and an evaluation layer scores
+every extracted value against the filing's own XBRL tags. The results are below.
+
+## Results
+
+The question the project asks: given only the plain text of a set of accounts, how often
+does a model extract the headline facts exactly as the filer tagged them? The tables below
+are generated from the evaluation views over every extraction run so far; the prose around
+them is the reading.
+
+- **The cheap model wins.** Flash-Lite at 3 US dollars per 1,000 filings out-scores Flash at
+  18, on the same 300 filings, on every headline number. Flash's extra thinking tokens buy
+  latency, not accuracy, on this task.
+- **One prompt rule was worth 1.8 points.** Every creditors error under prompt v1 was a sign
+  flip: the prompt said brackets mean negative, and accounts print creditors in brackets
+  while the taxonomy stores them as positive amounts. Prompt v2 states the taxonomy's sign
+  convention and took creditors from 54.5 to 97.4 percent recall. Flash was not rerun on v2
+  because the Stage 4 budget was spent; its creditors row is the v1 defect, not the model.
+- **Some of the answer key is wrong, and the harness says so.** 344 employee-count facts in
+  the filings carry a scale of minus two, tagging 2 employees as 0.02; the model read the
+  page correctly. Those cells are reported as tag errors, not scored either way. Negative
+  equity is sometimes tagged without its sign; those are counted against the model because
+  the harness cannot prove which side is right.
+- **Thinking could not be switched off.** The row labelled `@t0` set a zero thinking budget,
+  which the model ignored (2,643 mean thinking tokens against 2,330 by default). It is kept
+  as a null result.
+- **Length matters at both ends.** Recall is lowest on the longest filings, over 15,000
+  characters, and on the shortest, where dormant-company accounts state very little.
+
+<!-- eval:start -->
+_Computed from the evaluation views on 2026-09-08 by `python -m filing_facts.eval`. Every figure below is generated; CI fails if this section is stale._
+
+**Headline: exact-match recall of extracted facts against the XBRL tags**
+
+| Model / prompt | Filings | Verifiable cells | Recall | Precision | Unsupported | Tag errors | USD per 1,000 | Mean latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| gemini-3.1-flash-lite / v2 | 300 | 3255 | 94.8% | 95.6% | 574 | 34 | 3.31 | 3.9 s |
+| gemini-3.1-flash-lite / v1 | 321 | 3538 | 93.0% | 93.9% | 594 | 39 | 3.28 | 3.7 s |
+| gemini-3.8-flash@t0 / v1 | 100 | 1050 | 91.1% | 92.1% | 147 | 8 | 19.06 | 25.2 s |
+| gemini-3.8-flash / v1 | 300 | 3255 | 90.3% | 91.1% | 411 | 34 | 17.83 | 21.8 s |
+
+Verifiable cells are those where the filing's own tags give an answer. Unsupported cells are values the model gave where the tags are silent; they are reported, not scored. Tag errors are cells where the tag is demonstrably wrong and the model is not, such as employee counts filed with a scale of minus two.
+
+**Recall by concept**
+
+| Concept | gemini-3.1-flash-lite / v2 | gemini-3.1-flash-lite / v1 | gemini-3.8-flash@t0 / v1 | gemini-3.8-flash / v1 |
+|---|---:|---:|---:|---:|
+| Equity | 93.9% (n=495) | 94.6% (n=523) | 95.5% (n=176) | 94.3% (n=495) |
+| Net assets | 94.8% (n=462) | 95.5% (n=484) | 94.7% (n=151) | 94.2% (n=462) |
+| Net current assets | 93.5% (n=432) | 93.7% (n=475) | 92.6% (n=135) | 94.2% (n=432) |
+| Total assets less current liabilities | 93.9% (n=412) | 94.8% (n=460) | 94.9% (n=137) | 93.4% (n=412) |
+| Current assets | 95.5% (n=397) | 95.7% (n=437) | 96.6% (n=119) | 97.7% (n=397) |
+| Fixed assets | 93.8% (n=226) | 95.2% (n=251) | 95.7% (n=70) | 93.8% (n=226) |
+| Creditors due within one year | 97.4% (n=195) | 54.5% (n=209) | 18.2% (n=55) | 15.4% (n=195) |
+| Cash at bank | 94.6% (n=223) | 96.3% (n=246) | 97.2% (n=72) | 96.0% (n=223) |
+| Average employees | 96.9% (n=413) | 97.8% (n=453) | 95.6% (n=135) | 97.3% (n=413) |
+
+**How the wrong answers were wrong**
+
+| Model / prompt | sign flipped | off by a factor of 1,000 | current and prior swapped | within 1 percent | other |
+|---|---:|---:|---:|---:|---:|
+| gemini-3.1-flash-lite / v2 | 80 | 22 | 2 | 6 | 31 |
+| gemini-3.1-flash-lite / v1 | 168 | 22 | 0 | 7 | 18 |
+| gemini-3.8-flash@t0 / v1 | 60 | 8 | 0 | 0 | 14 |
+| gemini-3.8-flash / v1 | 236 | 22 | 0 | 0 | 28 |
+
+**Recall by filing length**
+
+| Model / prompt | under 2k chars | 2k to 5k | 5k to 15k | over 15k |
+|---|---:|---:|---:|---:|
+| gemini-3.1-flash-lite / v2 | 94.0% (n=133) | 96.7% (n=72) | 97.5% (n=84) | 70.4% (n=11) |
+| gemini-3.1-flash-lite / v1 | 89.1% (n=143) | 93.8% (n=74) | 98.1% (n=95) | 76.7% (n=9) |
+| gemini-3.8-flash@t0 / v1 | 90.5% (n=42) | 92.9% (n=24) | 93.7% (n=28) | 79.1% (n=6) |
+| gemini-3.8-flash / v1 | 89.2% (n=133) | 90.7% (n=72) | 94.3% (n=84) | 67.6% (n=11) |
+
+<!-- eval:end -->
 
 ## Roadmap
 
@@ -25,12 +99,10 @@ Each stage is independently shippable and lands as its own pull request.
 | 1 | Ingestion: daily ZIP to Cloud Storage, run ledger in BigQuery, Terraform, CI | Done |
 | 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Done |
 | 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Done |
-| 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Planned |
+| 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Done |
 | 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Planned |
 | 6 | RAG over filing text and an MCP server for natural-language queries | Planned |
 
-The evaluation results table will replace this section at the top of the README once Stage 4
-lands.
 
 ## How Stage 1 works
 
@@ -279,9 +351,9 @@ with `make cost`.
 - Companies House blanks some author metadata fields for security.
 - No OCR, by design: the bulk product is iXBRL only, so paper filings are out of scope
   (brief, section 8).
-- Prompt changes are regression-tested for structure in CI (loading, rendering, schema);
-  regression against real model answers is a Stage 4 deliverable, because it needs the
-  scoring harness.
+- Prompt changes are regression-tested for structure in CI. Regression against real model
+  answers is a paid run: `python -m filing_facts.extract --prompt vN --cap 300` followed by
+  `make eval`, which is how v2 was measured against v1.
 
 ## Repository layout
 
@@ -298,12 +370,13 @@ src/filing_facts/
   storage/factory.py      builds store, ledger and sink for both CLIs
   ingest/__main__.py      CLI entrypoint
   extract/                Stage 3: schema, prompt loader, Gemini boundary, extract job
+  eval/                   Stage 4: renders the evaluation views into this README
 prompts/extract/          versioned prompts
 airflow/                  local Airflow: compose file, DAGs, integrity tests
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)
 infra/stage1/             bucket, datasets, tables, IAM, both Cloud Run Jobs, schedules, CI identity
-dbt/                      staging models and tests over the raw tables
+dbt/                      staging and evaluation models with tests
 scripts/estimate_cost.py  generates docs/cost.md
 ```
 
