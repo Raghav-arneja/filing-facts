@@ -56,6 +56,14 @@ award records as partial ground truth.
 
 ## 3. Architecture
 
+> **Superseded, 2026-09-08.** This is the original sketch from before Stage 1. The
+> managed services in it (Cloud Composer, Dataflow, Firestore) were rejected in
+> section 11 and never built; the EXTRACT step became a Cloud Run Job, not a service;
+> run state lives in BigQuery ledger tables, not Firestore. The as-built architecture
+> is the diagram in [README.md](README.md#architecture). The sketch is kept because
+> the patterns it names (two event channels, quarantine and backfill, idempotent
+> loads) are the ones that were built.
+
 Deliberately mirrors patterns from serious production systems: two planes, split
 event channels, quarantine and backfill, idempotent loads.
 
@@ -170,8 +178,11 @@ memorable.
 ## 6. What this unlocks on my CV
 
 Once stages 1 to 4 are live and public, these move from "learning" to defensible:
-BigQuery, Vertex AI, Dataflow, Cloud Composer / Airflow, Pub/Sub, dbt, Terraform,
-Docker, RAG, LLM evaluation in Python.
+BigQuery, Vertex AI, Cloud Run, Airflow (local, Composer-compatible DAGs), Pub/Sub,
+dbt, Terraform, Docker, RAG, LLM evaluation in Python. Dataflow and Cloud Composer
+are **not** on that list: both were rejected in section 11 and never built, so they
+do not go on the CV. Kubernetes likewise: Cloud Run was sufficient and GKE was not
+stood up.
 
 Interview answer it produces: *"I operate this stack in production at work, and
 here's a public repo where I built the whole thing myself, end to end, including the

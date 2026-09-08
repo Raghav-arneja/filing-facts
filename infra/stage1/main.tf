@@ -17,6 +17,26 @@ resource "google_storage_bucket" "raw" {
   versioning {
     enabled = false # create-only writes in the job make versioning redundant
   }
+
+  # Storage is the only cost line that grows (docs/cost.md). Parsed ZIPs are still wanted
+  # for a reparse after a parser change, so they are demoted rather than deleted.
+  lifecycle_rule {
+    condition {
+      age = 30
+    }
+    action {
+      type          = "SetStorageClass"
+      storage_class = "NEARLINE"
+    }
+  }
+  lifecycle_rule {
+    condition {
+      age = 180
+    }
+    action {
+      type = "Delete"
+    }
+  }
 }
 
 resource "google_bigquery_dataset" "raw" {

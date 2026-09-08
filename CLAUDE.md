@@ -63,6 +63,17 @@ by me, not proposed by the agent.
 - Body follows `.github/pull_request_template.md`. Motivation before mechanics, net
   change only, verification with commands, no local paths, no hand-typed numbers.
 
+## GitHub accounts
+- Two accounts are logged into `gh`. The default active one is `ragggereo-works`; it must stay
+  the default so other repositories keep working. This repository belongs to `Raghav-arneja`.
+- `git push` needs nothing: a local credential helper in this repo always uses the
+  `Raghav-arneja` token.
+- Any `gh` API command (`gh pr create`, `gh pr merge`, `gh pr checks`, `gh api`) uses the active
+  account. Run `gh auth switch --user Raghav-arneja` first, and `gh auth switch --user
+  ragggereo-works` straight after. Never run `gh auth login`; both accounts already exist.
+- Every commit must be authored as Raghav Arneja <raghav28081998@gmail.com>. The repo's git
+  config already does this; check `git log -1 --format=%an` if in doubt.
+
 ## Stage-end checklist
 - Does `terraform destroy` leave nothing behind?
 - Does the stage run from a clean clone with only the README?
