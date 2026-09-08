@@ -50,7 +50,7 @@ _Computed from the evaluation views on 2026-09-08 by `python -m filing_facts.eva
 
 | Model / prompt | Filings | Verifiable cells | Recall | Precision | Unsupported | Tag errors | USD per 1,000 | Mean latency |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| gemini-3.1-flash-lite / v2 | 300 | 3255 | 94.8% | 95.6% | 574 | 34 | 3.31 | 3.9 s |
+| gemini-3.1-flash-lite / v2 | 302 | 3265 | 94.8% | 95.6% | 576 | 34 | 3.31 | 3.9 s |
 | gemini-3.1-flash-lite / v1 | 321 | 3538 | 93.0% | 93.9% | 594 | 39 | 3.28 | 3.7 s |
 | gemini-3.8-flash@t0 / v1 | 100 | 1050 | 91.1% | 92.1% | 147 | 8 | 19.06 | 25.2 s |
 | gemini-3.8-flash / v1 | 300 | 3255 | 90.3% | 91.1% | 411 | 34 | 17.83 | 21.8 s |
@@ -61,15 +61,15 @@ Verifiable cells are those where the filing's own tags give an answer. Unsupport
 
 | Concept | gemini-3.1-flash-lite / v2 | gemini-3.1-flash-lite / v1 | gemini-3.8-flash@t0 / v1 | gemini-3.8-flash / v1 |
 |---|---:|---:|---:|---:|
-| Equity | 93.9% (n=495) | 94.6% (n=523) | 95.5% (n=176) | 94.3% (n=495) |
-| Net assets | 94.8% (n=462) | 95.5% (n=484) | 94.7% (n=151) | 94.2% (n=462) |
-| Net current assets | 93.5% (n=432) | 93.7% (n=475) | 92.6% (n=135) | 94.2% (n=432) |
-| Total assets less current liabilities | 93.9% (n=412) | 94.8% (n=460) | 94.9% (n=137) | 93.4% (n=412) |
-| Current assets | 95.5% (n=397) | 95.7% (n=437) | 96.6% (n=119) | 97.7% (n=397) |
-| Fixed assets | 93.8% (n=226) | 95.2% (n=251) | 95.7% (n=70) | 93.8% (n=226) |
+| Equity | 94.0% (n=497) | 94.6% (n=523) | 95.5% (n=176) | 94.3% (n=495) |
+| Net assets | 94.8% (n=465) | 95.5% (n=484) | 94.7% (n=151) | 94.2% (n=462) |
+| Net current assets | 93.5% (n=433) | 93.7% (n=475) | 92.6% (n=135) | 94.2% (n=432) |
+| Total assets less current liabilities | 93.9% (n=413) | 94.8% (n=460) | 94.9% (n=137) | 93.4% (n=412) |
+| Current assets | 95.5% (n=398) | 95.7% (n=437) | 96.6% (n=119) | 97.7% (n=397) |
+| Fixed assets | 93.8% (n=227) | 95.2% (n=251) | 95.7% (n=70) | 93.8% (n=226) |
 | Creditors due within one year | 97.4% (n=195) | 54.5% (n=209) | 18.2% (n=55) | 15.4% (n=195) |
 | Cash at bank | 94.6% (n=223) | 96.3% (n=246) | 97.2% (n=72) | 96.0% (n=223) |
-| Average employees | 96.9% (n=413) | 97.8% (n=453) | 95.6% (n=135) | 97.3% (n=413) |
+| Average employees | 96.9% (n=414) | 97.8% (n=453) | 95.6% (n=135) | 97.3% (n=413) |
 
 **How the wrong answers were wrong**
 
@@ -84,7 +84,7 @@ Verifiable cells are those where the filing's own tags give an answer. Unsupport
 
 | Model / prompt | under 2k chars | 2k to 5k | 5k to 15k | over 15k |
 |---|---:|---:|---:|---:|
-| gemini-3.1-flash-lite / v2 | 94.0% (n=133) | 96.7% (n=72) | 97.5% (n=84) | 70.4% (n=11) |
+| gemini-3.1-flash-lite / v2 | 94.0% (n=134) | 96.7% (n=72) | 97.5% (n=85) | 70.4% (n=11) |
 | gemini-3.1-flash-lite / v1 | 89.1% (n=143) | 93.8% (n=74) | 98.1% (n=95) | 76.7% (n=9) |
 | gemini-3.8-flash@t0 / v1 | 90.5% (n=42) | 92.9% (n=24) | 93.7% (n=28) | 79.1% (n=6) |
 | gemini-3.8-flash / v1 | 89.2% (n=133) | 90.7% (n=72) | 94.3% (n=84) | 67.6% (n=11) |
