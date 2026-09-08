@@ -8,14 +8,18 @@ real rather than vibes.
 This repository is a public portfolio project built on public data. Design rationale and the
 staged build plan are in [PROJECT-BRIEF.md](PROJECT-BRIEF.md).
 
-**Status: Stages 1 to 5 complete.** Each publication
+**Status: Stages 1 to 6 complete.** Each publication
 morning one Cloud Run Job fetches the daily Companies House accounts ZIP into Cloud Storage
 and records it in BigQuery and publishes an event; a dispatcher starts a second job that parses
 a capped sample of the filings
 into `documents`, `facts` and `quarantine` tables. On demand, a third job asks Gemini on
 Vertex AI to extract the headline facts from the plain text, storing every answer with its
 measured cost. dbt staging views and tests sit over all of it, and an evaluation layer scores
-every extracted value against the filing's own XBRL tags. The results are below.
+every extracted value against the filing's own XBRL tags. A fourth job embeds the filing
+text so it can be searched by meaning, and a local MCP server answers questions over it with
+citations. The results are below.
+
+![Searching the filings by meaning, then asking a question and getting a cited answer](docs/demo.gif)
 
 ## Results
 
@@ -102,7 +106,7 @@ Each stage is independently shippable and lands as its own pull request.
 | 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Done |
 | 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Done |
 | 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Done |
-| 6 | RAG over filing text and an MCP server for natural-language queries | Planned |
+| 6 | RAG over filing text and an MCP server for natural-language queries | Done |
 
 
 ## How Stage 1 works
@@ -314,7 +318,17 @@ claude mcp add filing-facts -e FF_GCP_PROJECT=$PROJECT -- \
 Then, in Claude Code: "which dormant companies have called-up share capital under £10?"
 The answer arrives with keys like `[14508432_20251130#0]`; `get_facts` on that document
 shows the tagged figure the passage came from. The answer prompt lives in
-`prompts/ask/` and is versioned like the extraction prompts.
+`prompts/ask/` and is versioned like the extraction prompts. Without a chat client:
+
+```bash
+uv run python -m filing_facts.mcp --ask "which dormant companies have share capital under 10 pounds?"
+make demo                # re-records docs/demo.gif with vhs; one paid question
+```
+
+What a question costs and what indexing cost are in [docs/cost.md](docs/cost.md), measured
+from the ledgers. The answer is only as good as retrieval: `ask` ranks passages by cosine
+distance alone, so a question that names a company may pull in a lookalike. The citation
+keys make that visible, which is the point of them.
 
 ### Airflow, locally in Docker
 
@@ -460,11 +474,15 @@ src/filing_facts/
   events/                 Stage 5: lifecycle and document event schemas and publishers
   dispatcher/             Stage 5: the Cloud Run service that turns events into job runs
   telemetry.py            Stage 5: tracing and log correlation
-prompts/extract/          versioned prompts
+  index/                  Stage 6: chunker, embedder, index job, vector search
+  mcp/                    Stage 6: MCP server, data access over the views, grounded answers
+prompts/extract/          versioned extraction prompts
+prompts/ask/              versioned answer prompt
+docs/demo.tape            vhs script for the README recording
 airflow/                  local Airflow: compose file, DAGs, integrity tests
 tests/                    idempotency, download failure, truncation, local backends
 infra/bootstrap/          APIs, state bucket, Artifact Registry (local state)
-infra/stage1/             bucket, datasets, tables, IAM, both Cloud Run Jobs, schedules, CI identity
+infra/stage1/             bucket, datasets, tables, IAM, the four Cloud Run Jobs, the dispatcher, schedules, CI identity
 dbt/                      staging and evaluation models with tests
 scripts/estimate_cost.py  generates docs/cost.md
 ```

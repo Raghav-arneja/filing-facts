@@ -116,6 +116,9 @@ eval: ## Query the evaluation views and write the results into README.md and doc
 search: ## Semantic search over the indexed filings, e.g. make search Q='dormant company in Leeds'
 	uv run python -m filing_facts.index --search "$(Q)" --k 5
 
+demo: ## Re-record docs/demo.gif with vhs (one paid question, about USD 0.002)
+	vhs docs/demo.tape
+
 eval-check: ## Fail if the README results block no longer matches the views (CI runs this)
 	FF_GCP_PROJECT=$(PROJECT) uv run python -m filing_facts.eval --check --dataset $(EVAL_DATASET)
 EVAL_DATASET ?= filing_facts_staging
