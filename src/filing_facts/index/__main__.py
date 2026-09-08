@@ -30,6 +30,7 @@ def _embedder(settings: Settings, fake: bool) -> Embedder:
         project=settings.gcp_project,
         location=settings.vertex_location,
         dimensions=settings.embedding_dimensions,
+        threads=settings.extract_threads,
     )
 
 

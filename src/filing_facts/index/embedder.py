@@ -55,6 +55,10 @@ class FakeEmbedder:
 
 
 class VertexEmbedder:
+    """One text per request. gemini-embedding-2 treats a list of contents as the parts of a
+    single multimodal input and returns one vector for all of them, silently; the older
+    gemini-embedding-001 batched. Requests run on a small thread pool instead."""
+
     def __init__(
         self,
         model_id: str,
@@ -62,13 +66,13 @@ class VertexEmbedder:
         project: str,
         location: str = "global",
         dimensions: int = 768,
-        batch_size: int = 32,
+        threads: int = 4,
     ) -> None:
         from google import genai
 
         self._model_id = model_id
         self._dims = dimensions
-        self._batch = batch_size
+        self._threads = threads
         self._client = genai.Client(vertexai=True, project=project, location=location)
 
     @property
@@ -79,20 +83,29 @@ class VertexEmbedder:
     def dimensions(self) -> int:
         return self._dims
 
-    def embed(self, texts: Sequence[str], task: TaskType) -> list[Embedding]:
+    def _one(self, text: str, task: TaskType) -> Embedding:
         from google.genai import types
 
-        out: list[Embedding] = []
-        for i in range(0, len(texts), self._batch):
-            batch = list(texts[i : i + self._batch])
-            response = self._client.models.embed_content(  # pyright: ignore[reportUnknownMemberType]
-                model=self._model_id,
-                contents=batch,
-                config=types.EmbedContentConfig(task_type=task, output_dimensionality=self._dims),
-            )
-            for e in response.embeddings or []:
-                tokens = int(e.statistics.token_count or 0) if e.statistics else 0
-                out.append(Embedding(list(e.values or []), tokens))
-        if len(out) != len(texts):
-            raise RuntimeError(f"embedded {len(out)} of {len(texts)} texts")
-        return out
+        response = self._client.models.embed_content(  # pyright: ignore[reportUnknownMemberType]
+            model=self._model_id,
+            contents=text,
+            config=types.EmbedContentConfig(task_type=task, output_dimensionality=self._dims),
+        )
+        embeddings = response.embeddings or []
+        if len(embeddings) != 1:
+            raise RuntimeError(f"expected one embedding, got {len(embeddings)}")
+        e = embeddings[0]
+        vector = list(e.values or [])
+        if len(vector) != self._dims:
+            raise RuntimeError(f"expected {self._dims} dimensions, got {len(vector)}")
+        tokens = int(e.statistics.token_count or 0) if e.statistics else 0
+        return Embedding(vector, tokens)
+
+    def embed(self, texts: Sequence[str], task: TaskType) -> list[Embedding]:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def one(text: str) -> Embedding:
+            return self._one(text, task)
+
+        with ThreadPoolExecutor(max_workers=self._threads) as pool:
+            return list(pool.map(one, texts))
