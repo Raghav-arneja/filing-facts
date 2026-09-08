@@ -8,9 +8,10 @@ real rather than vibes.
 This repository is a public portfolio project built on public data. Design rationale and the
 staged build plan are in [PROJECT-BRIEF.md](PROJECT-BRIEF.md).
 
-**Status: Stages 1 to 4 complete.** Each publication
+**Status: Stages 1 to 5 complete.** Each publication
 morning one Cloud Run Job fetches the daily Companies House accounts ZIP into Cloud Storage
-and records it in BigQuery; an hour later a second job parses a capped sample of the filings
+and records it in BigQuery and publishes an event; a dispatcher starts a second job that parses
+a capped sample of the filings
 into `documents`, `facts` and `quarantine` tables. On demand, a third job asks Gemini on
 Vertex AI to extract the headline facts from the plain text, storing every answer with its
 measured cost. dbt staging views and tests sit over all of it, and an evaluation layer scores
@@ -100,7 +101,7 @@ Each stage is independently shippable and lands as its own pull request.
 | 2 | Parse iXBRL filings, strip tags to plain text, quarantine table, dbt staging models | Done |
 | 3 | LLM extraction on Vertex AI against a Pydantic schema, confidence handling, local Airflow | Done |
 | 4 | Evaluation harness: extracted facts scored against XBRL ground truth, model comparison | Done |
-| 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Planned |
+| 5 | Pub/Sub event channels, backfill DAG, observability and alerting | Done |
 | 6 | RAG over filing text and an MCP server for natural-language queries | Planned |
 
 
@@ -242,7 +243,7 @@ reduces that to one row per fact with a test that occurrences agree.
 ### Stage 3: extraction with Gemini on Vertex AI
 
 ```
-Airflow (local, Docker) or `gcloud run jobs execute extract`
+Airflow (local, Docker), the dispatcher (if extract_on_event), or `gcloud run jobs execute extract`
       v
 Cloud Run Job: extract
       |  1. up to FF_EXTRACT_CAP documents with no answer yet for this (model, prompt)
@@ -295,6 +296,48 @@ make airflow-trigger CONF='{"extract_cap": 20}'
 make airflow-down
 ```
 
+## Runbook: what breaks, how it is detected, what to do
+
+Stage 5 turned the pipeline into an event-driven chain with alerting. This section is the
+operator's view of it.
+
+```
+08:00 London  Cloud Scheduler -> ingest job
+                  |  publishes "ingested" on the lifecycle topic
+                  v
+              Pub/Sub push -> dispatcher (Cloud Run service, private, scales to zero)
+                  |  starts the parse job for that source
+                  v
+              parse job -> one "documents" message per parsed filing -> BigQuery subscription
+                  |  publishes "parsed"; extract starts only if extract_on_event is on
+                  v
+              extract job (manual, or Airflow, or the flag) -> publishes "extracted"
+```
+
+Every event is validated against a versioned schema. A message the dispatcher cannot handle
+is answered 400; Pub/Sub retries five times with backoff, then moves it to the dead-letter
+topic. A transient failure, or a job that is already running, is answered 503 and retried.
+The dispatcher starts at most one execution per job at a time, so a redelivered event cannot
+start a concurrent duplicate. Every job is idempotent, so a replayed event costs a no-op run.
+
+| What breaks | How you find out | What to do |
+|---|---|---|
+| The daily file is not published | Ingest ledger row `not_published`; no event | Nothing. Companies House publishes Tuesday to Saturday; holidays skip. |
+| Ingest, parse or extract exits non-zero | Alert: failed execution, within 10 minutes | Read the ledger row's `error`, open the execution's trace from the log line's trace id. Rerun the job by hand; it resumes its pinned batch. |
+| A malformed or unknown-version event | Alert: dead letter, within 10 minutes | Pull it from the dead-letter subscription, read `event_rejected` in the dispatcher logs, fix the producer, replay with the backfill DAG's dead-letter task. |
+| Dispatcher down or a job stuck running | Alert: lifecycle message unacknowledged for an hour | Check the service's revisions and the job's executions; cancel a stuck execution; Pub/Sub redelivers on its own once the dispatcher answers. |
+| A filing that cannot be parsed or extracted | Quarantine row with a reason; dbt tests reconcile counts | Fix the parser or prompt, release the rows with the backfill DAG; the jobs pick released documents up first. |
+| The model answers where the tags are silent, or the tags are wrong | Evaluation views: `unsupported` and `tag_error` counts | Reported in the README; not scored either way. |
+| Spend | Budget alert email at the billing account | Extraction never runs on a schedule; the on-event flag defaults off. |
+
+Traces: one span per job run and one per document, in Cloud Trace, linked from every log
+line's trace field. Metrics behind the alerts: Pub/Sub dead-letter sends, oldest unacked
+message age, Cloud Run failed execution count. Alerts email the address in the
+`alert_email` Terraform variable.
+
+Replaying anything is safe. Ledger rows are the source of truth; events and executions are
+derived from them and duplicate nothing.
+
 ### dbt staging layer
 
 `dbt/` holds staging views in the `filing_facts_staging` dataset, which Terraform owns. dbt
@@ -326,7 +369,8 @@ The bootstrap root is left standing on purpose: the state bucket has versioning 
 ## Quality gates
 
 CI runs on every pull request: gitleaks over full history, Ruff lint and format, Pyright
-strict, pytest, `terraform fmt` and `validate` for both roots, a Docker build, and a dbt
+strict, pytest, `terraform fmt` and `validate` for both roots, a Docker build that smoke-runs
+every entrypoint, the Airflow DAG integrity test in the Airflow image, and a dbt
 build with every dbt test against BigQuery in a CI-only dataset, authenticated through
 Workload Identity Federation. No key is stored anywhere. Locally:
 
@@ -371,6 +415,9 @@ src/filing_facts/
   ingest/__main__.py      CLI entrypoint
   extract/                Stage 3: schema, prompt loader, Gemini boundary, extract job
   eval/                   Stage 4: renders the evaluation views into this README
+  events/                 Stage 5: lifecycle and document event schemas and publishers
+  dispatcher/             Stage 5: the Cloud Run service that turns events into job runs
+  telemetry.py            Stage 5: tracing and log correlation
 prompts/extract/          versioned prompts
 airflow/                  local Airflow: compose file, DAGs, integrity tests
 tests/                    idempotency, download failure, truncation, local backends
