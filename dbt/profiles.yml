@@ -1,8 +1,5 @@
 # Application Default Credentials locally; Workload Identity Federation in CI. No keys anywhere.
 # Both targets write into datasets that Terraform owns (infra/stage1); see macros/create_schema.sql.
-config:
-  send_anonymous_usage_stats: false
-
 filing_facts:
   target: "{{ env_var('FF_DBT_TARGET', 'dev') }}"
   outputs:
