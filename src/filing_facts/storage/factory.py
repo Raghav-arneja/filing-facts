@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from filing_facts.config import Settings
+from filing_facts.events.publisher import EventPublisher, NullPublisher
 from filing_facts.storage.protocols import ExtractSink, ParseSink, RawStore, RunLog
 
 
@@ -15,6 +16,7 @@ class Backends:
     runlog: RunLog
     sink: ParseSink
     extract_sink: ExtractSink
+    publisher: EventPublisher
 
 
 def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
@@ -32,6 +34,7 @@ def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
             runlog=JsonlRunLog(root / "ingest_runs.jsonl"),
             sink=JsonlParseSink(root / "parsed"),
             extract_sink=JsonlExtractSink(root / "parsed", root / "extract"),
+            publisher=NullPublisher(),
         )
 
     missing = [n for n in ("gcp_project", "raw_bucket") if not getattr(settings, n)]
@@ -68,4 +71,15 @@ def build_backends(settings: Settings, *, dry_run: bool) -> Backends:
             extractions=settings.extractions_table,
             extract_runs=settings.extract_runs_table,
         ),
+        publisher=_publisher(settings),
     )
+
+
+def _publisher(settings: Settings) -> EventPublisher:
+    if not settings.lifecycle_topic and not settings.documents_topic:
+        return NullPublisher()  # not wired yet: the ledger remains the source of truth
+    if not settings.lifecycle_topic or not settings.documents_topic:
+        raise SystemExit("set both FF_LIFECYCLE_TOPIC and FF_DOCUMENTS_TOPIC, or neither")
+    from filing_facts.events.publisher import PubSubPublisher
+
+    return PubSubPublisher(settings.gcp_project, settings.lifecycle_topic, settings.documents_topic)

@@ -48,3 +48,9 @@ class Settings(BaseSettings):
     extract_threads: int = 4
     extractions_table: str = "extractions"
     extract_runs_table: str = "extract_runs"
+
+    # Stage 5: events
+    region: str = "europe-west2"
+    lifecycle_topic: str = ""  # empty: events are logged, not published
+    documents_topic: str = ""
+    extract_on_event: bool = False  # extraction spends money; a human turns this on

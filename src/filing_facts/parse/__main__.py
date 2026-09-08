@@ -47,7 +47,13 @@ def main(argv: list[str] | None = None) -> int:
     failed = 0
     for key in keys:
         outcome = run(
-            settings, store=b.store, sink=b.sink, source_key=key, cap=cap, reparse=args.reparse
+            settings,
+            store=b.store,
+            sink=b.sink,
+            source_key=key,
+            cap=cap,
+            reparse=args.reparse,
+            publisher=b.publisher,
         )
         failed += outcome.status == "failed"
     log.info("parse_end", keys=len(keys), failed=failed)

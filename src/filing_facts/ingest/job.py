@@ -18,6 +18,8 @@ import httpx
 import structlog
 
 from filing_facts.config import Settings
+from filing_facts.events.messages import LifecycleEvent
+from filing_facts.events.publisher import EventPublisher, publish_after_success
 from filing_facts.sources import companies_house as ch
 from filing_facts.storage.protocols import (
     AlreadyExistsError,
@@ -44,6 +46,7 @@ def run(
     runlog: RunLog,
     target_date: date,
     now: datetime | None = None,
+    publisher: EventPublisher | None = None,
 ) -> RunOutcome:
     started_at = now or datetime.now(UTC)
     run_id = str(uuid.uuid4())
@@ -96,4 +99,13 @@ def run(
             bound.info("object_already_present", sha256=result.sha256)
             raw_uri = store.uri_for(key)
 
-    return finish("succeeded", raw_uri=raw_uri, sha256=result.sha256, byte_count=result.byte_count)
+    outcome = finish(
+        "succeeded", raw_uri=raw_uri, sha256=result.sha256, byte_count=result.byte_count
+    )
+    publish_after_success(
+        publisher,
+        LifecycleEvent(
+            event="ingested", source_key=key, run_id=run_id, occurred_at=datetime.now(UTC)
+        ),
+    )
+    return outcome

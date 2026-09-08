@@ -31,6 +31,8 @@ from pathlib import Path
 import structlog
 
 from filing_facts.config import Settings
+from filing_facts.events.messages import LifecycleEvent
+from filing_facts.events.publisher import EventPublisher, publish_after_success
 from filing_facts.extract.model import ExtractionError, ExtractionModel, ModelResponse
 from filing_facts.extract.pricing import cost_usd, is_priced
 from filing_facts.extract.prompt import Prompt
@@ -77,6 +79,7 @@ def run(
     min_confidence: float | None = None,
     threads: int | None = None,
     now: datetime | None = None,
+    publisher: EventPublisher | None = None,
 ) -> ExtractOutcome:
     started = now or datetime.now(UTC)
     run_id = str(uuid.uuid4())
@@ -166,6 +169,17 @@ def run(
             )
         rec = record("succeeded", batch_id, len(docs) + len(missing), counts)
         bound.info("extract_succeeded", batch_id=batch_id, **counts.__dict__)
+        publish_after_success(
+            publisher,
+            LifecycleEvent(
+                event="extracted",
+                run_id=run_id,
+                batch_id=batch_id,
+                occurred_at=datetime.now(UTC),
+                model=model.model_id,
+                prompt_id=prompt.id,
+            ),
+        )
         return ExtractOutcome("succeeded", rec)
     except Exception as exc:
         bound.error("extract_failed", batch_id=batch_id, error=str(exc))

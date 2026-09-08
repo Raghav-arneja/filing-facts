@@ -24,6 +24,8 @@ from pathlib import Path
 import structlog
 
 from filing_facts.config import Settings
+from filing_facts.events.messages import DocumentEvent, LifecycleEvent
+from filing_facts.events.publisher import EventPublisher, publish_after_success
 from filing_facts.parse.document_key import DocumentKey, document_key
 from filing_facts.parse.errors import ParseError
 from filing_facts.parse.ixbrl import parse_ixbrl_tree
@@ -105,6 +107,7 @@ def run(
     cap: int | None = None,
     now: datetime | None = None,
     reparse: bool = False,
+    publisher: EventPublisher | None = None,
 ) -> ParseOutcome:
     """Parse one source. With reparse=True, first purge everything this source produced so
     every member is processed again by the current parser. That is a deliberate operator
@@ -166,9 +169,22 @@ def run(
                         return ParseOutcome("skipped_existing", rec)
                     batch_id = batch_id_for(members, salt=run_id if reparse else "")
                     record("started", batch_id, len(members), _Counts(), members=members)
-                counts = _process(zf, sink, source_key, batch_id, members, Path(tmp), bound)
+                counts, doc_events = _process(
+                    zf, sink, source_key, batch_id, members, Path(tmp), bound
+                )
         rec = record("succeeded", batch_id, len(members), counts)
         bound.info("parse_succeeded", batch_id=batch_id, **counts.__dict__)
+        publish_after_success(
+            publisher,
+            LifecycleEvent(
+                event="parsed",
+                source_key=source_key,
+                run_id=run_id,
+                batch_id=batch_id,
+                occurred_at=datetime.now(UTC),
+            ),
+            doc_events,
+        )
         return ParseOutcome("succeeded", rec)
     except Exception as exc:
         bound.error("parse_failed", batch_id=batch_id, error=str(exc))
@@ -186,8 +202,9 @@ def _process(
     members: list[str],
     tmp: Path,
     bound: structlog.stdlib.BoundLogger,
-) -> _Counts:
+) -> tuple[_Counts, list[DocumentEvent]]:
     now = datetime.now(UTC)
+    doc_events: list[DocumentEvent] = []
     documents = Spool(tmp / "documents.ndjson", source_key)
     facts = Spool(tmp / "facts.ndjson", source_key)
     quarantine = Spool(tmp / "quarantine.ndjson", source_key)
@@ -252,6 +269,16 @@ def _process(
                 parser_version=PARSER_VERSION,
             )
         )
+        doc_events.append(
+            DocumentEvent(
+                document_id=key.document_id,
+                source_key=source_key,
+                batch_id=batch_id,
+                fact_count=len(parsed.facts),
+                text_chars=len(text),
+                parsed_at=now,
+            )
+        )
         del data, root, parsed, text
 
     for spool in (documents, facts, quarantine):
@@ -264,4 +291,4 @@ def _process(
         "documents": sink.write_documents(batch_id, documents),
     }
     bound.info("batch_written", batch_id=batch_id, **written)
-    return counts
+    return counts, doc_events

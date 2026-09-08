@@ -49,7 +49,14 @@ def main(argv: list[str] | None = None) -> int:
     log.info("ingest_start", date=args.date.isoformat(), dry_run=args.dry_run)
 
     with httpx.Client(timeout=settings.http_timeout_seconds, follow_redirects=True) as client:
-        outcome = run(settings, client=client, store=store, runlog=runlog, target_date=args.date)
+        outcome = run(
+            settings,
+            client=client,
+            store=store,
+            runlog=runlog,
+            target_date=args.date,
+            publisher=backends.publisher,
+        )
 
     log.info("ingest_end", status=outcome.status)
     return 1 if outcome.status == "failed" else 0
