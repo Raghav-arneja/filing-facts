@@ -120,3 +120,9 @@ variable "alert_email" {
   type        = string
   default     = "raghav28081998@gmail.com"
 }
+
+variable "index_cap" {
+  description = "Documents per index run. Every run spends a little on embeddings."
+  type        = number
+  default     = 500
+}

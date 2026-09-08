@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, Protocol
 
 if TYPE_CHECKING:
     from filing_facts.extract.rows import DocumentText, ExtractRunRecord
+    from filing_facts.index.rows import IndexRunRecord
     from filing_facts.parse.rows import ParseRunRecord
     from filing_facts.parse.spool import Spool
 
@@ -129,3 +130,19 @@ class ExtractSink(Protocol):
     def write_extractions(self, batch_id: str, spool: Spool) -> bool: ...
 
     def record_run(self, record: ExtractRunRecord) -> bool: ...
+
+
+class IndexSink(Protocol):
+    """Destination for chunks and their embeddings, keyed per embedding model."""
+
+    def pending_documents(self, embedding_model: str, cap: int) -> list[DocumentText]: ...
+
+    def documents_by_id(self, ids: list[str]) -> list[DocumentText]: ...
+
+    def processed_ids(self, embedding_model: str) -> set[str]: ...
+
+    def open_batch(self, embedding_model: str) -> tuple[str, list[str]] | None: ...
+
+    def write_chunks(self, batch_id: str, spool: Spool) -> bool: ...
+
+    def record_run(self, record: IndexRunRecord) -> bool: ...

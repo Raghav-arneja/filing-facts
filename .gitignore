@@ -32,3 +32,5 @@ dbt/.user.yml
 # airflow (local)
 airflow/logs/
 airflow/.env
+tfplan
+*.tfplan

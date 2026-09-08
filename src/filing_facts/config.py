@@ -54,3 +54,14 @@ class Settings(BaseSettings):
     lifecycle_topic: str = ""  # empty: events are logged, not published
     documents_topic: str = ""
     extract_on_event: bool = False  # extraction spends money; a human turns this on
+
+    # Stage 6: index and search
+    embedding_model: str = "gemini-embedding-2"
+    embedding_dimensions: int = 768
+    chunk_chars: int = 1500
+    chunk_overlap_lines: int = 3
+    index_cap: int = Field(default=500, description="Documents per index run.")
+    index_flush_docs: int = Field(default=100, description="Load chunks every N documents.")
+    chunks_table: str = "chunks"
+    bq_staging_dataset: str = "filing_facts_staging"
+    index_runs_table: str = "index_runs"
