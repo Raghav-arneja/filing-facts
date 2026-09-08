@@ -19,12 +19,15 @@ from typing import cast
 
 from airflow.models.param import Param
 from airflow.providers.google.cloud.hooks.bigquery import BigQueryHook
+from airflow.providers.google.cloud.hooks.pubsub import PubSubHook
 from airflow.providers.google.cloud.operators.cloud_run import CloudRunExecuteJobOperator
 from airflow.sdk import DAG, task
 
 PROJECT = os.environ.get("FF_GCP_PROJECT", "filing-facts-gb")
 REGION = os.environ.get("FF_REGION", "europe-west2")
 DATASET = os.environ.get("FF_BQ_DATASET", "filing_facts_raw")
+LIFECYCLE_TOPIC = "filing-facts-lifecycle"
+DEAD_LETTER_SUBSCRIPTION = "filing-facts-lifecycle-dead-letter-pull"
 QUARANTINE = f"`{PROJECT}.{DATASET}.quarantine`"
 
 RELEASE_SQL = f"""
@@ -65,6 +68,15 @@ with DAG(
         "model": Param("gemini-3.1-flash-lite", type="string", description="Extract stage only."),
         "prompt": Param("v2", type="string", description="Extract stage only: prompt version."),
         "extract_cap": Param(300, type="integer", minimum=1, maximum=2000),
+        "dead_letters": Param(
+            "none",
+            type="string",
+            enum=["none", "replay", "purge"],
+            description=(
+                "replay: republish dead-lettered lifecycle events after a fix. "
+                "purge: acknowledge them without replay, for poison messages. Both are logged."
+            ),
+        ),
     },
 ) as dag:
 
@@ -112,6 +124,49 @@ with DAG(
         )
         return [_run_overrides(["--source-key", str(r[0])]) for r in rows]
 
+    @task(task_id="handle_dead_letters")
+    def handle_dead_letters(**context: object) -> dict[str, int]:
+        """Drain the lifecycle dead-letter subscription: replay to the topic, or purge.
+
+        A dead letter is a message the dispatcher rejected five times. Replaying it only makes
+        sense after the cause is fixed; a poison message replayed unfixed comes straight back.
+        Every message handled is logged with its id and attributes, so nothing vanishes.
+        """
+        params = cast(dict[str, object], context["params"])
+        mode = str(params["dead_letters"])
+        counts = {"replayed": 0, "purged": 0}
+        if mode == "none":
+            return counts
+        hook = PubSubHook()
+        while True:
+            pulled = hook.pull(
+                project_id=PROJECT,
+                subscription=DEAD_LETTER_SUBSCRIPTION,
+                max_messages=50,
+                return_immediately=True,
+            )
+            if not pulled:
+                break
+            for received in pulled:
+                msg = received.message
+                attrs = dict(msg.attributes)
+                print(f"dead letter {msg.message_id} attributes={attrs} mode={mode}")
+                if mode == "replay":
+                    hook.publish(
+                        project_id=PROJECT,
+                        topic=LIFECYCLE_TOPIC,
+                        messages=[{"data": msg.data, "attributes": {**attrs, "replayed": "1"}}],
+                    )
+                    counts["replayed"] += 1
+                else:
+                    counts["purged"] += 1
+            hook.acknowledge(
+                project_id=PROJECT,
+                subscription=DEAD_LETTER_SUBSCRIPTION,
+                ack_ids=[r.ack_id for r in pulled],
+            )
+        return counts
+
     @task.branch
     def which_stage(**context: object) -> str:
         params = cast(dict[str, object], context["params"])
@@ -143,6 +198,7 @@ with DAG(
     ).expand(overrides=sources)
 
     branch = which_stage()
-    release >> branch
+    dead_letters = handle_dead_letters()
+    dead_letters >> release >> branch
     branch >> rerun_extract
     branch >> sources
