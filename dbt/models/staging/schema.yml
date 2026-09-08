@@ -65,3 +65,50 @@ models:
           - accepted_values:
               arguments:
                 values: ["started", "succeeded", "skipped_existing", "failed"]
+
+  - name: stg_extractions
+    description: One validated model answer per document, model and prompt.
+    columns:
+      - name: document_id
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_documents')
+                field: document_id
+      - name: model
+        tests: [not_null]
+      - name: prompt_id
+        tests: [not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["ok", "low_confidence"]
+      - name: cost_usd
+        tests: [not_null]
+    tests:
+      - unique:
+          arguments:
+            column_name: "concat(document_id, '|', model, '|', prompt_id)"
+
+  - name: stg_extraction_values
+    description: The answer flattened to one row per field and period. Joins to stg_facts on concept.
+    columns:
+      - name: concept
+        tests: [not_null]
+      - name: period
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["current", "prior"]
+      - name: confidence
+        tests: [not_null]
+
+  - name: stg_extract_runs
+    columns:
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["started", "succeeded", "skipped_existing", "failed"]

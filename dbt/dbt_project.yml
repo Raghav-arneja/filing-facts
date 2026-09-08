@@ -9,6 +9,9 @@ macro-paths: ["macros"]
 target-path: "target"
 clean-targets: ["target", "dbt_packages"]
 
+flags:
+  send_anonymous_usage_stats: false
+
 models:
   filing_facts:
     staging:

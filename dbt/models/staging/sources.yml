@@ -17,3 +17,9 @@ sources:
       - name: parse_runs
         config:
           loaded_at_field: started_at
+      - name: extractions
+        config:
+          loaded_at_field: extracted_at
+      - name: extract_runs
+        config:
+          loaded_at_field: started_at
