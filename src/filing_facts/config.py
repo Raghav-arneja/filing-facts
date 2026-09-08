@@ -39,7 +39,7 @@ class Settings(BaseSettings):
 
     # Stage 3: extract
     extract_model: str = "gemini-3.1-flash-lite"
-    prompt_version: str = "v1"
+    prompt_version: str = "v2"
     vertex_location: str = (
         "global"  # the current Flash line is served from the global endpoint only
     )

@@ -63,7 +63,7 @@ with DAG(
         "stage": Param("extract", type="string", enum=["parse", "extract"]),
         "reason": Param("", type="string", description="Quarantine reason, or empty for all."),
         "model": Param("gemini-3.1-flash-lite", type="string", description="Extract stage only."),
-        "prompt": Param("v1", type="string", description="Extract stage only: prompt version."),
+        "prompt": Param("v2", type="string", description="Extract stage only: prompt version."),
         "extract_cap": Param(300, type="integer", minimum=1, maximum=2000),
     },
 ) as dag:
