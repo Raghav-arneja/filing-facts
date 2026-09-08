@@ -1,0 +1,112 @@
+version: 2
+
+models:
+  - name: eval_ground_truth
+    description: One XBRL-tagged value per document, concept and period. The answer key.
+    tests:
+      - unique:
+          arguments:
+            column_name: "concat(document_id, '|', concept, '|', period)"
+    columns:
+      - name: period
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["current", "prior"]
+      - name: value
+        tests: [not_null]
+
+  - name: eval_scores
+    description: Every extracted cell with its verdict against the answer key.
+    columns:
+      - name: outcome
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["correct", "wrong", "missed", "unsupported", "tag_error", "not_applicable"]
+      - name: error_type
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["sign_flipped", "scale_1000", "period_swapped", "near_miss", "other", "truth_off_by_100"]
+
+  - name: eval_metrics
+    description: Precision, recall and error breakdown per model, prompt and concept. Feeds the README.
+    columns:
+      - name: recall
+        tests: [not_null]
+
+  - name: eval_metrics_by_size
+
+unit_tests:
+  - name: ground_truth_rules
+    description: Creditors take the within-one-year member; periods come from the balance sheet date; ties are ambiguous.
+    model: eval_ground_truth
+    given:
+      - input: ref('stg_extraction_values')
+        rows:
+          - {concept: "Equity"}
+          - {concept: "Creditors"}
+      - input: ref('stg_documents')
+        rows:
+          - {document_id: "d1", period_end: 2025-12-31}
+      - input: ref('stg_facts')
+        rows:
+          # current and prior equity, non-dimensional
+          - {document_id: "d1", concept: "Equity", value: 100, is_numeric: true, inconsistent: false, dimensional: false, dimensions: null, instant: 2025-12-31, period_end: null}
+          - {document_id: "d1", concept: "Equity", value: 90, is_numeric: true, inconsistent: false, dimensional: false, dimensions: null, instant: 2024-12-31, period_end: null}
+          # a dimensional equity slice must be ignored
+          - {document_id: "d1", concept: "Equity", value: 1, is_numeric: true, inconsistent: false, dimensional: true, dimensions: "EquityClassesDimension=ShareCapital", instant: 2025-12-31, period_end: null}
+          # creditors: only the within-one-year member counts
+          - {document_id: "d1", concept: "Creditors", value: 40, is_numeric: true, inconsistent: false, dimensional: true, dimensions: "MaturitiesOrExpirationPeriodsDimension=WithinOneYear", instant: 2025-12-31, period_end: null}
+          - {document_id: "d1", concept: "Creditors", value: 60, is_numeric: true, inconsistent: false, dimensional: true, dimensions: "MaturitiesOrExpirationPeriodsDimension=AfterOneYear", instant: 2025-12-31, period_end: null}
+          - {document_id: "d1", concept: "Creditors", value: 99, is_numeric: true, inconsistent: false, dimensional: false, dimensions: null, instant: 2025-12-31, period_end: null}
+          # a duration fact for the prior period, dated by period_end
+          - {document_id: "d1", concept: "Creditors", value: 35, is_numeric: true, inconsistent: false, dimensional: true, dimensions: "MaturitiesOrExpirationPeriodsDimension=WithinOneYear", instant: null, period_end: 2024-12-31}
+          # a second prior-period value at the same date makes the cell ambiguous
+          - {document_id: "d1", concept: "Creditors", value: 36, is_numeric: true, inconsistent: false, dimensional: true, dimensions: "MaturitiesOrExpirationPeriodsDimension=WithinOneYear", instant: null, period_end: 2024-12-31}
+    expect:
+      rows:
+        - {document_id: "d1", concept: "Equity", period: "current", value: 100, ambiguous: false}
+        - {document_id: "d1", concept: "Equity", period: "prior", value: 90, ambiguous: false}
+        - {document_id: "d1", concept: "Creditors", period: "current", value: 40, ambiguous: false}
+        - {document_id: "d1", concept: "Creditors", period: "prior", value: 35, ambiguous: true}
+
+  - name: score_classification
+    description: Every outcome and error type is reachable and named correctly.
+    model: eval_scores
+    given:
+      - input: ref('stg_extraction_values')
+        rows:
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "equity", concept: "Equity", period: "current", value: 100, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "equity", concept: "Equity", period: "prior", value: -90, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "cash", concept: "CashBankOnHand", period: "current", value: 12000, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "cash", concept: "CashBankOnHand", period: "prior", value: null, confidence: 0.0, evidence: ""}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "creditors", concept: "Creditors", period: "current", value: 70, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "creditors", concept: "Creditors", period: "prior", value: 50, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "fixed_assets", concept: "FixedAssets", period: "current", value: 5, confidence: 0.5, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "fixed_assets", concept: "FixedAssets", period: "prior", value: null, confidence: 0.0, evidence: ""}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "net_assets", concept: "NetAssetsLiabilities", period: "current", value: 1001, confidence: 0.9, evidence: "e"}
+          - {document_id: "d1", model: "m", prompt_id: "p", field: "average_employees", concept: "AverageNumberEmployeesDuringPeriod", period: "current", value: 2, confidence: 0.9, evidence: "e"}
+      - input: ref('eval_ground_truth')
+        rows:
+          - {document_id: "d1", concept: "Equity", period: "current", value: 100, ambiguous: false}
+          - {document_id: "d1", concept: "Equity", period: "prior", value: 90, ambiguous: false}
+          - {document_id: "d1", concept: "CashBankOnHand", period: "current", value: 12, ambiguous: false}
+          - {document_id: "d1", concept: "CashBankOnHand", period: "prior", value: 8, ambiguous: false}
+          - {document_id: "d1", concept: "Creditors", period: "current", value: 50, ambiguous: false}
+          - {document_id: "d1", concept: "Creditors", period: "prior", value: 70, ambiguous: false}
+          - {document_id: "d1", concept: "NetAssetsLiabilities", period: "current", value: 1000, ambiguous: false}
+          - {document_id: "d1", concept: "AverageNumberEmployeesDuringPeriod", period: "current", value: 0.02, ambiguous: false}
+    expect:
+      rows:
+        - {concept: "Equity", period: "current", outcome: "correct", error_type: null}
+        - {concept: "Equity", period: "prior", outcome: "wrong", error_type: "sign_flipped"}
+        - {concept: "CashBankOnHand", period: "current", outcome: "wrong", error_type: "scale_1000"}
+        - {concept: "CashBankOnHand", period: "prior", outcome: "missed", error_type: null}
+        - {concept: "Creditors", period: "current", outcome: "wrong", error_type: "period_swapped"}
+        - {concept: "Creditors", period: "prior", outcome: "wrong", error_type: "period_swapped"}
+        - {concept: "FixedAssets", period: "current", outcome: "unsupported", error_type: null}
+        - {concept: "FixedAssets", period: "prior", outcome: "not_applicable", error_type: null}
+        - {concept: "NetAssetsLiabilities", period: "current", outcome: "wrong", error_type: "near_miss"}
+        - {concept: "AverageNumberEmployeesDuringPeriod", period: "current", outcome: "tag_error", error_type: "truth_off_by_100"}
