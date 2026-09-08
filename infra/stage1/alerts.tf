@@ -77,3 +77,10 @@ resource "google_monitoring_alert_policy" "failed_executions" {
     content = "A job execution exited non-zero. The job's ledger row carries the error; the execution's logs carry the trace id. Rerunning is safe: every job is idempotent."
   }
 }
+
+# Jobs export their spans as their own identity.
+resource "google_project_iam_member" "ingest_trace_agent" {
+  project = var.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = google_service_account.ingest.member
+}
