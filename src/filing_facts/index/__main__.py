@@ -42,13 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--search", help="Instead of indexing, search for this question.")
     parser.add_argument("--k", type=int, default=5)
     args = parser.parse_args(argv)
-    configure_logging()
     settings = Settings()
-    configure_tracing("filing-facts-index", settings.gcp_project, enabled=not args.dry_run)
-    log = structlog.get_logger(__name__)
     embedder = _embedder(settings, args.fake)
 
-    if args.search:
+    if args.search:  # a human is reading stdout: no JSON logs, no tracing
         from filing_facts.index.search import BigQuerySearchBackend, Searcher
 
         backend = BigQuerySearchBackend(
@@ -64,6 +61,9 @@ def main(argv: list[str] | None = None) -> int:
             print("   " + hit.text[:200].replace("\n", " | "))
         return 0
 
+    configure_logging()
+    configure_tracing("filing-facts-index", settings.gcp_project, enabled=not args.dry_run)
+    log = structlog.get_logger(__name__)
     b = build_backends(settings, dry_run=args.dry_run)
     outcome = run(settings, sink=b.index_sink, embedder=embedder, cap=args.cap)
     log.info(

@@ -17,7 +17,8 @@ from filing_facts.extract.prompt import Prompt, load_prompt
 from filing_facts.index.search import Hit, Searcher
 
 ASK_PROMPTS = Path(__file__).resolve().parents[3] / "prompts" / "ask"
-_CITATION = re.compile(r"\[(\d{8}_\d{8}#\d+)\]")
+# Company numbers are eight characters and not always digits: SC, NI, OC prefixes.
+CITATION = re.compile(r"\[([A-Z0-9]{8}_\d{8}#\d+)\]")
 
 
 @dataclass(frozen=True)
@@ -41,7 +42,7 @@ class FakeGenerator:
     model_id = "fake-generator"
 
     def generate(self, system: str, user: str) -> Generation:
-        keys = _CITATION.findall(user)
+        keys = CITATION.findall(user)
         text = f"Fake answer citing [{keys[0]}]." if keys else "The passages do not say."
         return Generation(text, input_tokens=len(user) // 4, output_tokens=8, latency_ms=1)
 
@@ -136,7 +137,7 @@ class Asker:
         user = self._prompt.render(render_passages(hits)).replace("{question}", question)
         gen = self._generator.generate(self._prompt.system, user)
         by_key = {citation_key(h): h for h in hits}
-        cited = list(dict.fromkeys(_CITATION.findall(gen.text)))
+        cited = list(dict.fromkeys(CITATION.findall(gen.text)))
         citations: list[dict[str, object]] = [
             {
                 "key": key,

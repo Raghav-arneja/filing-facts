@@ -80,6 +80,14 @@ EXTRACTION_MEASURED: dict[str, tuple[int, int, int, int, float]] = {
     "gemini-3.8-flash@t0": (100, 6351, 1169, 2643, 25162),  # thinking budget 0, ignored
 }
 
+# Retrieval, measured on 2026-09-08. Index: the index_runs ledger after embedding the whole
+# corpus (SELECT SUM(indexed), SUM(chunks), SUM(tokens) FROM index_runs WHERE status =
+# 'succeeded'). Question: one `ask` call on six passages, tokens as reported by the API.
+INDEX_MEASURED = (2097, 10581, 3_287_317)  # documents, chunks, embedding tokens
+QUESTION_MEASURED = (1879, 195, 6)  # prompt tokens, answer tokens, passages
+EMBEDDING_MODEL = "gemini-embedding-2"
+ANSWER_MODEL = "gemini-3.1-flash-lite"
+
 
 def gib(n: int | float) -> float:
     return n / (1 << 30)
@@ -179,6 +187,12 @@ def main(argv: list[str]) -> int:
         _cost("gemini-3.1-flash-lite", lite_in, lite_out, lite_think) * args.parse_cap * runs
     )
 
+    idx_docs, idx_chunks, idx_tokens = INDEX_MEASURED
+    idx_usd = _cost(EMBEDDING_MODEL, idx_tokens, 0)
+    idx_per_1000 = idx_usd / idx_docs * 1000
+    q_in, q_out, q_k = QUESTION_MEASURED
+    q_usd = _cost(ANSWER_MODEL, q_in, q_out)
+
     for model, (n, tin, tout, tthink, ms) in EXTRACTION_MEASURED.items():
         per_1000 = _cost(model, tin, tout, tthink) * 1000
         out.append(
@@ -192,6 +206,24 @@ def main(argv: list[str]) -> int:
         f"daily volume would be about {full_day_multiple:.0f} times that.",
         "",
         f"Cost per run: USD {per_run_usd:.5f} (GBP {per_run_usd * GBP_PER_USD:.5f}).",
+        "",
+        "## Retrieval cost (Stage 6)",
+        "",
+        "Embedding is paid once per filing; a question pays for its own passages. Both are "
+        "measured, not estimated; prices are the list rates in the pricing module.",
+        "",
+        "| Item | Measured | USD | GBP |",
+        "|---|---|---:|---:|",
+        f"| Index {idx_docs:,} filings ({idx_chunks:,} chunks, {idx_tokens / idx_docs:,.0f} "
+        f"tokens per filing) | {EMBEDDING_MODEL} | {idx_usd:.2f} | {idx_usd * GBP_PER_USD:.2f} |",
+        f"| Index, per 1,000 filings | | {idx_per_1000:.2f} | {idx_per_1000 * GBP_PER_USD:.2f} |",
+        f"| One question ({q_in:,} tokens in, {q_out:,} out, {q_k} passages) | {ANSWER_MODEL} "
+        f"| {q_usd:.5f} | {q_usd * GBP_PER_USD:.5f} |",
+        f"| 1,000 questions | | {q_usd * 1000:.2f} | {q_usd * 1000 * GBP_PER_USD:.2f} |",
+        "",
+        "Search itself is a query embedding (a few tokens) and a BigQuery scan of the chunks "
+        "table, inside the free tier. No vector index resource exists, so nothing bills while "
+        "idle.",
         "",
         "Storage is the only line that grows. Each month of daily ZIPs adds about "
         f"{stored_gib:.2f} GiB to Cloud Storage, so that line roughly doubles every month "

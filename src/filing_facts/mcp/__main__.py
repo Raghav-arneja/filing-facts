@@ -5,6 +5,7 @@ claude mcp add filing-facts -- uv run --directory /path/to/filing-facts python -
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sys
 
@@ -16,7 +17,11 @@ from filing_facts.mcp.data import BigQueryFilingData
 from filing_facts.mcp.server import build_server
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="filing_facts.mcp", description=__doc__)
+    parser.add_argument("--ask", metavar="QUESTION", help="Answer one question on stdout and exit.")
+    parser.add_argument("--k", type=int, default=6, help="Passages to retrieve for --ask.")
+    args = parser.parse_args(argv)
     # stdout is the protocol channel; anything chatty goes to stderr.
     logging.basicConfig(level=logging.WARNING, stream=sys.stderr)
     logging.getLogger("google_genai.models").setLevel(logging.ERROR)  # AFC advice on every call
@@ -51,7 +56,19 @@ def main() -> int:
     data = BigQueryFilingData(
         settings.gcp_project, settings.bq_dataset, settings.bq_staging_dataset, settings.bq_location
     )
-    build_server(data, searcher, Asker(searcher, generator)).run("stdio")
+    asker = Asker(searcher, generator)
+    if args.ask:
+        answer = asker.ask(args.ask, k=args.k)
+        print(answer.answer)
+        print()
+        for c in answer.citations:
+            print(f"[{c['key']}] {c['company_name'] or c['company_number']}, {c['period_end']}")
+        print(
+            f"\n{answer.model}: {answer.input_tokens:,} in / {answer.output_tokens:,} out, "
+            f"USD {answer.cost_usd:.5f}, {answer.latency_ms / 1000:.1f} s"
+        )
+        return 0
+    build_server(data, searcher, asker).run("stdio")
     return 0
 
 
