@@ -25,10 +25,11 @@ Not a monthly line: extraction runs on demand. Token means are measured from the
 
 | Model | Filings measured | Mean tokens in / out / thinking | Mean latency | USD per 1,000 | GBP per 1,000 |
 |---|---:|---|---:|---:|---:|
-| gemini-3.1-flash-lite | 321 | 6,166 / 1,157 / 0 | 3.7 s | 3.28 | 2.56 |
-| gemini-3.8-flash | 100 | 6,043 / 1,165 / 2,330 | 20.3 s | 17.64 | 13.76 |
+| gemini-3.1-flash-lite | 621 | 6,254 / 1,152 / 0 | 3.8 s | 3.29 | 2.57 |
+| gemini-3.8-flash | 300 | 6,270 / 1,167 / 2,335 | 21.8 s | 17.84 | 13.91 |
+| gemini-3.8-flash@t0 | 100 | 6,351 / 1,169 / 2,643 | 25.2 s | 19.06 | 14.87 |
 
-Extracting every filing the parse job stores (500 per day at the current cap) with the cheaper model would cost about USD 36.05 a month; the full daily volume would be about 21 times that.
+Extracting every filing the parse job stores (500 per day at the current cap) with the cheaper model would cost about USD 36.21 a month; the full daily volume would be about 21 times that.
 
 Cost per run: USD 0.00313 (GBP 0.00244).
 
