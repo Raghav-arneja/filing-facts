@@ -113,6 +113,9 @@ airflow-trigger: ## Trigger the daily DAG once (ARGS='--conf {"extract_cap": 50}
 eval: ## Query the evaluation views and write the results into README.md and docs/eval.md
 	FF_GCP_PROJECT=$(PROJECT) uv run python -m filing_facts.eval --write
 
+search: ## Semantic search over the indexed filings, e.g. make search Q='dormant company in Leeds'
+	uv run python -m filing_facts.index --search "$(Q)" --k 5
+
 eval-check: ## Fail if the README results block no longer matches the views (CI runs this)
 	FF_GCP_PROJECT=$(PROJECT) uv run python -m filing_facts.eval --check --dataset $(EVAL_DATASET)
 EVAL_DATASET ?= filing_facts_staging

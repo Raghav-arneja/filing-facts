@@ -274,6 +274,23 @@ The current Gemini Flash line is served from Vertex's `global` endpoint only; eu
 offers 2.5 Flash alone. Filing text therefore leaves the region for inference. It is public
 data.
 
+### Stage 6: retrieval over the filings
+
+A fourth job, `index`, splits each filing's text on line boundaries into passages of about
+1,500 characters with a three-line overlap, embeds them with `gemini-embedding-2`
+(768 dimensions, `RETRIEVAL_DOCUMENT`) and loads them into a `chunks` table. Batches are
+pinned in an `index_runs` ledger and loads are keyed on batch, attempt and part, so a crash
+keeps every chunk already loaded and a resume pays only for the rest. Search embeds the
+question as `RETRIEVAL_QUERY` and runs BigQuery `VECTOR_SEARCH` with cosine distance; at
+this corpus size brute force answers in a few seconds and needs no vector index, which
+would bill by the hour whether or not anyone asked a question.
+
+```bash
+uv run python -m filing_facts.index --dry-run --fake --cap 5      # no GCP, no model calls
+gcloud run jobs execute index --region europe-west2 --project $PROJECT --wait
+uv run python -m filing_facts.index --search "furniture maker with no employees" --k 3
+```
+
 ### Airflow, locally in Docker
 
 Per the locked decision, orchestration from Stage 3 runs on Apache Airflow in Docker rather
