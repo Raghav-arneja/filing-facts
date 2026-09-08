@@ -139,11 +139,13 @@ with DAG(
             return counts
         hook = PubSubHook()
         while True:
+            # A pull that returns immediately may come back empty while messages wait; a
+            # blocking pull waits for the server's deadline and is the reliable form.
             pulled = hook.pull(
                 project_id=PROJECT,
                 subscription=DEAD_LETTER_SUBSCRIPTION,
                 max_messages=50,
-                return_immediately=True,
+                return_immediately=False,
             )
             if not pulled:
                 break
