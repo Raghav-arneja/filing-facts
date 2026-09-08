@@ -139,6 +139,8 @@ def run(
             finished_at=datetime.now(UTC),
             error=error,
             members=members or [],
+            parser_version=PARSER_VERSION,
+            reparse=reparse,
         )
         sink.record_run(rec)
         return rec

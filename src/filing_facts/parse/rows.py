@@ -113,6 +113,8 @@ class ParseRunRecord:
     finished_at: datetime
     error: str | None = None
     members: list[str] = field(default_factory=list[str])  # populated on `started` rows only
+    parser_version: int | None = None
+    reparse: bool = False  # this run purged the source first; earlier runs for it are superseded
 
 
 def parse_run_key(record: ParseRunRecord) -> str:
