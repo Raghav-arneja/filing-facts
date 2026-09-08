@@ -54,12 +54,6 @@ variable "max_bytes" {
   default     = 750000000
 }
 
-variable "parse_schedule" {
-  description = "Cron in Europe/London for the parse job. An hour after ingest."
-  type        = string
-  default     = "0 9 * * 2-6"
-}
-
 variable "parse_cap" {
   description = "Max filings parsed per daily ZIP. Raising it re-queues parsed ZIPs for the remainder."
   type        = number
@@ -113,4 +107,10 @@ variable "vertex_location" {
 variable "extract_job_timeout" {
   type    = string
   default = "3600s"
+}
+
+variable "extract_on_event" {
+  description = "Let a parsed event start the extract job. Off: extraction is a human decision."
+  type        = bool
+  default     = false
 }
