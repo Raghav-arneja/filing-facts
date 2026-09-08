@@ -36,4 +36,17 @@ Extracting every filing the parse job stores (500 per day at the current cap) wi
 
 Cost per run: USD 0.00313 (GBP 0.00244).
 
+## Retrieval cost (Stage 6)
+
+Embedding is paid once per filing; a question pays for its own passages. Both are measured, not estimated; prices are the list rates in the pricing module.
+
+| Item | Measured | USD | GBP |
+|---|---|---:|---:|
+| Index 2,097 filings (10,581 chunks, 1,568 tokens per filing) | gemini-embedding-2 | 0.66 | 0.51 |
+| Index, per 1,000 filings | | 0.31 | 0.24 |
+| One question (1,879 tokens in, 195 out, 6 passages) | gemini-3.1-flash-lite | 0.00076 | 0.00059 |
+| 1,000 questions | | 0.76 | 0.59 |
+
+Search itself is a query embedding (a few tokens) and a BigQuery scan of the chunks table, inside the free tier. No vector index resource exists, so nothing bills while idle.
+
 Storage is the only line that grows. Each month of daily ZIPs adds about 2.98 GiB to Cloud Storage, so that line roughly doubles every month until a lifecycle rule or compaction is added; neither exists yet. BigQuery grows by about 364 MiB a month at a cap of 500 filings per day; a full day of 10,288 filings would multiply that by about 21 and still sit inside the 10 GiB free tier for several months. Nothing here runs when the jobs are idle.
